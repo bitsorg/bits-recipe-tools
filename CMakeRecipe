@@ -1,0 +1,45 @@
+function Prepare() {
+  rsync -av --delete --exclude '**/.git' --delete-excluded rsync -a --delete ${SOURCEDIR}/ ${BUILDDIR}
+}
+
+function Configure() {
+cmake ${BUILDDIR} -DCMAKE_INSTALL_PREFIX="$INSTALLROOT" --log-level DEBUG 
+}
+
+function Make() {
+cmake --build ${BUILDDIR} -- ${CMAKE_OPTIONS} ${JOBS:+-j$JOBS}
+}
+
+function MakeInstall() {
+cmake ${BUILDDIR} install
+}
+
+function PostInstall() {
+  true
+}
+
+function Clean() {
+  rm -f $INSTALLROOT/lib/*.la
+  rm -rf $INSTALLROOT/share
+}
+
+. ${BITSPKGDIR}/ModuleRecipe
+
+function Run() {
+    mkdir -p build
+    pushd build
+    case $1 in
+	Prepare)
+  	  Prepare
+	  ;;
+	Build)
+          Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+          ;;
+	*)
+          Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+          ;;
+    esac
+    popd
+}
+
+

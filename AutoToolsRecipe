@@ -1,0 +1,41 @@
+function Prepare() {
+  rsync -av --delete --exclude '**/.git' --delete-excluded $SOURCEDIR/ ./
+}
+
+function Configure() {
+  ./configure --prefix=$INSTALLROOT
+}
+
+function Make() {
+  make ${JOBS:+-j $JOBS} 
+}
+
+function MakeInstall() {
+  make install
+}
+
+function PostInstall() {
+  true
+}
+
+function Clean() {
+  rm -f $INSTALLROOT/lib/*.la
+}
+
+. ${BITSPKGDIR}/ModuleRecipe
+
+function Run() {
+    case $1 in
+	Prepare)
+  	  Prepare
+	  ;;
+	Build)
+	  Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+          ;;
+	*)
+          Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+          ;;
+    esac
+}
+
+
