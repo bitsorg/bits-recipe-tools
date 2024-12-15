@@ -22,7 +22,7 @@ function Clean() {
   rm -f $INSTALLROOT/lib/*.la
 }
 
-. ${BITSPKGDIR}/ModuleRecipe
+. $(bits-include ModuleRecipe)
 
 function Run() {
     case $1 in

@@ -23,7 +23,7 @@ function Clean() {
   rm -rf $INSTALLROOT/share
 }
 
-. ${BITSPKGDIR}/ModuleRecipe
+. $(bits-include ModuleRecipe)
 
 function Run() {
     mkdir -p build
