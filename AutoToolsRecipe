@@ -3,6 +3,7 @@ function Prepare() {
 }
 
 function Configure() {
+  [ -f autogen.sh ] && ./autogen.sh
   ./configure --prefix=$INSTALLROOT
 }
 
@@ -22,7 +23,7 @@ function Clean() {
   rm -f $INSTALLROOT/lib/*.la
 }
 
-. $(bits-include ModuleRecipe)
+. ${BITSPKGDIR}/ModuleRecipe
 
 function Run() {
     case $1 in

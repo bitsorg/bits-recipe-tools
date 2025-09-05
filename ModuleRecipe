@@ -7,15 +7,19 @@ function GenerateModule() {
 # --bin will add $INSTALLROOT/bin to PATH
 # --lib will add $INSTALLROOT/lib to LD_LIBRARY_PATH
 # --cmake will add $INSTALLROOT to CMAKE_PREFIX_PATH
+# --root define ROOT_$PACKAGE variable
+
 HAS_BIN=
 HAS_LIB=
 HAS_CMAKE=
+HAS_ROOT=
 while [ "X$#" != "X0" ]; do
   case $1 in
     --bin) HAS_BIN=true; shift ;;
-    --lib) HAS_LIB=true; shift ;;
+    --lib) HAS_LIB=true; shift ;; 
     --cmake) HAS_CMAKE=true; shift ;;
-  esac
+    --root) HAS_ROOT=true; shift ;;
+ esac
 done
 
 cat << EOF
@@ -57,9 +61,13 @@ if [ X$HAS_BIN = Xtrue ]; then
 fi
 if [ X$HAS_LIB = Xtrue ]; then
   printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib\n"
+  printf "setenv ${PKGNAME}_INCLUDE_DIR \$PKG_ROOT/include"
 fi
 if [ X$HAS_CMAKE = Xtrue ]; then
   printf "prepend-path CMAKE_PREFIX_PATH \$PKG_ROOT\n"
+fi
+if [ X$HAS_ROOT = Xtrue ]; then
+  printf "setenv ${PKGNAME}_ROOT \$PKG_ROOT\n"
 fi
 echo
 }

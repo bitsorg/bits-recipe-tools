@@ -1,4 +1,8 @@
 function Prepare() {
+    rsync -av --delete --delete-excluded $SOURCEDIR/ ./
+}
+
+function Prepare() {
   rsync -av --delete --exclude '**/.git' --delete-excluded rsync -a --delete ${SOURCEDIR}/ ${BUILDDIR}
 }
 
@@ -23,7 +27,7 @@ function Clean() {
   rm -rf $INSTALLROOT/share
 }
 
-. $(bits-include ModuleRecipe)
+. ${BITSPKGDIR}/ModuleRecipe
 
 function Run() {
     mkdir -p build
