@@ -13,7 +13,7 @@ function Make() {
 }
 
 function MakeInstall() {
-  cmake ${CMAKE_BUILDDIR} install
+  cmake --install ${CMAKE_BUILDDIR} 
 }
 
 function PostInstall() {
