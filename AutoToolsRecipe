@@ -23,7 +23,7 @@ function Clean() {
   rm -f $INSTALLROOT/lib/*.la
 }
 
-. ${BITSPKGDIR}/ModuleRecipe
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
 
 function Run() {
     case $1 in

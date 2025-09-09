@@ -1,3 +1,8 @@
 #!/bin/sh
-dir=$(dirname $(dirname $0))
-echo $dir/$1
+if [ x$BITS_RECIPE_TOOLS_ROOT = x ]
+then
+   dir=$(dirname $(dirname $0))
+   export $BITS_RECIPE_TOOLS_ROOT=$dir
+fi
+echo $BITS_RECIPE_TOOLS_ROOT/$1
+

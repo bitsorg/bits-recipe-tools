@@ -13,10 +13,12 @@ HAS_BIN=
 HAS_LIB=
 HAS_CMAKE=
 HAS_ROOT=
+HAS_INC=
 while [ "X$#" != "X0" ]; do
   case $1 in
-    --bin) HAS_BIN=true; shift ;;
-    --lib) HAS_LIB=true; shift ;; 
+    --bin) HAS_BIN=true; HAS_ROOT=true; shift ;;
+    --lib) HAS_LIB=true; HAS_INC=true shift ;; 
+    --inc) HAS_INC=true; HAS_INC=true shift ;; 
     --cmake) HAS_CMAKE=true; shift ;;
     --root) HAS_ROOT=true; shift ;;
  esac
@@ -51,17 +53,23 @@ for x in `env | cut -f1 -d= | grep -v "^DEFAULT_" | grep -v PKGREVISION | grep -
     done
   fi
 done
-case $HAS_BIN-$HAS_LIB-$HAS_CMAKE in
-  --) ;;
-  *) printf "\n\nset PKG_ROOT \$::env(BASEDIR)/$PKGNAME/\$version\n" ;;
-esac
+
+#case $HAS_BIN-$HAS_LIB-$HAS_CMAKE in
+#  --) ;;
+#  *) printf "\n\nset PKG_ROOT \$::env(BASEDIR)/$PKGNAME/\$version\n" ;;
+#esac
+set -vx 
+
+printf "\n\nset PKG_ROOT \$::env(BASEDIR)/$PKGNAME/\$version\n"
 
 if [ X$HAS_BIN = Xtrue ]; then 
   printf "prepend-path PATH \$PKG_ROOT/bin\n"
 fi
 if [ X$HAS_LIB = Xtrue ]; then
   printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib\n"
-  printf "setenv ${PKGNAME}_INCLUDE_DIR \$PKG_ROOT/include"
+fi
+if [ X$HAS_INC = Xtrue ]; then
+  printf "setenv ${PKGNAME}_INCLUDE_DIR \$PKG_ROOT/include\n"
 fi
 if [ X$HAS_CMAKE = Xtrue ]; then
   printf "prepend-path CMAKE_PREFIX_PATH \$PKG_ROOT\n"

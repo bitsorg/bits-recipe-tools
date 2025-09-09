@@ -1,21 +1,19 @@
-function Prepare() {
-    rsync -av --delete --delete-excluded $SOURCEDIR/ ./
-}
+CMAKE_BUILDDIR="${CMAKE_BUILDDIR:-.}"
 
 function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded rsync -a --delete ${SOURCEDIR}/ ${BUILDDIR}
+  rsync -av --delete --delete-excluded $SOURCEDIR/ ./
 }
 
 function Configure() {
-cmake ${BUILDDIR} -DCMAKE_INSTALL_PREFIX="$INSTALLROOT" --log-level DEBUG 
+  cmake ${CMAKE_BUILDDIR} -DCMAKE_INSTALL_PREFIX="$INSTALLROOT" --log-level DEBUG 
 }
 
 function Make() {
-cmake --build ${BUILDDIR} -- ${CMAKE_OPTIONS} ${JOBS:+-j$JOBS}
+  cmake --build ${CMAKE_BUILDDIR} -- ${CMAKE_OPTIONS} ${JOBS:+-j$JOBS}
 }
 
 function MakeInstall() {
-cmake ${BUILDDIR} install
+  cmake ${CMAKE_BUILDDIR} install
 }
 
 function PostInstall() {
@@ -27,7 +25,7 @@ function Clean() {
   rm -rf $INSTALLROOT/share
 }
 
-. ${BITSPKGDIR}/ModuleRecipe
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
 
 function Run() {
     mkdir -p build
