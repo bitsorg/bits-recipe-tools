@@ -17,9 +17,9 @@ HAS_INC=
 while [ "X$#" != "X0" ]; do
   case $1 in
     --bin) HAS_BIN=true; HAS_ROOT=true; shift ;;
-    --lib) HAS_LIB=true; HAS_INC=true shift ;; 
-    --inc) HAS_INC=true; HAS_INC=true shift ;; 
-    --cmake) HAS_CMAKE=true; shift ;;
+    --lib) HAS_LIB=true; HAS_INC=true;  shift ;; 
+    --inc) HAS_INC=true; shift ;; 
+    --cmake) HAS_CMAKE=true; HAS_ROOT=true; shift ;;
     --root) HAS_ROOT=true; shift ;;
  esac
 done
@@ -54,12 +54,6 @@ for x in `env | cut -f1 -d= | grep -v "^DEFAULT_" | grep -v PKGREVISION | grep -
   fi
 done
 
-#case $HAS_BIN-$HAS_LIB-$HAS_CMAKE in
-#  --) ;;
-#  *) printf "\n\nset PKG_ROOT \$::env(BASEDIR)/$PKGNAME/\$version\n" ;;
-#esac
-set -vx 
-
 printf "\n\nset PKG_ROOT \$::env(BASEDIR)/$PKGNAME/\$version\n"
 
 if [ X$HAS_BIN = Xtrue ]; then 
@@ -73,6 +67,7 @@ if [ X$HAS_INC = Xtrue ]; then
 fi
 if [ X$HAS_CMAKE = Xtrue ]; then
   printf "prepend-path CMAKE_PREFIX_PATH \$PKG_ROOT\n"
+  printf "setenv ${PKGNAME}_DIR \$PKG_ROOT/lib/cmake\n"
 fi
 if [ X$HAS_ROOT = Xtrue ]; then
   printf "setenv ${PKGNAME}_ROOT \$PKG_ROOT\n"

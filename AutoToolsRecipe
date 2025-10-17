@@ -28,13 +28,16 @@ function Clean() {
 function Run() {
     case $1 in
 	Prepare)
-  	  Prepare
+  	  Prepare && return
+	  exit 1
 	  ;;
 	Build)
-	  Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+	  Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && return
+	  exit 1
           ;;
 	*)
-          Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+          Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && return
+	  exit 1
           ;;
     esac
 }
