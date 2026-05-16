@@ -21,6 +21,7 @@ while [ "X$#" != "X0" ]; do
     --inc) HAS_INC=true; shift ;; 
     --cmake) HAS_CMAKE=true; HAS_ROOT=true; shift ;;
     --root) HAS_ROOT=true; shift ;;
+    *) shift ;;
  esac
 done
 
@@ -41,7 +42,7 @@ FULL_BUILD_REQUIRES=${FULL_BUILD_REQUIRES:-$BUILD_REQUIRES}
 echo FULL_BUILD_REQUIRES=$FULL_BUILD_REQUIRES >&2
 
 # Dependencies
-for x in `env | cut -f1 -d= | grep -v "^DEFAULT_" | grep -v PKGREVISION | grep -v ALIBUILD_RECIPE_TOOLS | grep REVISION | sed -e 's/_REVISION//'`; do
+for x in `env | cut -f1 -d= | grep -v "^DEFAULT_" | grep -v PKGREVISION | grep -v _RECIPE_TOOLS | grep REVISION | sed -e 's/_REVISION//'`; do
   REVISION_VALUE=`eval "echo $(echo \\$$(echo ${x}_REVISION))"`
   VERSION_VALUE=`eval "echo $(echo \\$$(echo ${x}_VERSION))"`
   ROOT_PATH_VALUE=`eval "echo $(echo \\$$(echo ${x}_ROOT))"`
@@ -67,7 +68,6 @@ if [ X$HAS_INC = Xtrue ]; then
 fi
 if [ X$HAS_CMAKE = Xtrue ]; then
   printf "prepend-path CMAKE_PREFIX_PATH \$PKG_ROOT\n"
-  printf "setenv ${PKGNAME}_DIR \$PKG_ROOT/lib/cmake\n"
 fi
 if [ X$HAS_ROOT = Xtrue ]; then
   printf "setenv ${PKGNAME}_ROOT \$PKG_ROOT\n"

@@ -1,0 +1,44 @@
+function Prepare() {
+  rsync -av --delete --exclude '**/.git' --delete-excluded $SOURCEDIR/ ./
+}
+
+function Configure() {
+  DESTDIR=$INSTALLROOT
+}
+
+function Make() {
+  true
+}
+
+function MakeInstall() {
+  echo cp -r $PWD $DESTDIR
+}
+
+function PostInstall() {
+  true
+}
+
+function Clean() {
+  true
+}
+
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
+
+function Run() {
+    case $1 in
+	Prepare)
+  	  Prepare && return
+	  exit 1
+	  ;;
+	Build)
+	  Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && return
+	  exit 1
+          ;;
+	*)
+          Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && return
+	  exit 1
+          ;;
+    esac
+}
+
+
