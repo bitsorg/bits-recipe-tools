@@ -3,16 +3,15 @@ function Prepare() {
 }
 
 function Configure() {
-  [ -f autogen.sh ] && ./autogen.sh
-  ./configure --prefix=$INSTALLROOT
+  DESTDIR=$INSTALLROOT
 }
 
 function Make() {
-  make ${JOBS:+-j $JOBS} 
+  true
 }
 
 function MakeInstall() {
-  make install
+  echo cp -r $PWD $DESTDIR
 }
 
 function PostInstall() {
@@ -20,7 +19,7 @@ function PostInstall() {
 }
 
 function Clean() {
-  rm -f $INSTALLROOT/lib/*.la
+  true
 }
 
 . ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe

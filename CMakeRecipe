@@ -32,16 +32,18 @@ function Run() {
     pushd build
     case $1 in
 	Prepare)
-  	  Prepare
+  	  Prepare && popd && return
+	  exit 1
 	  ;;
 	Build)
-          Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+          Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && popd && return
+	  exit 1
           ;;
 	*)
-          Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+          Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && popd && return
           ;;
     esac
-    popd
+    exit 1
 }
 
 

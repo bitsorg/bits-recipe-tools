@@ -1,0 +1,10 @@
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
+
+MODULE_OPTIONS="--bin --lib"
+
+function Run() {
+    MakeModule && return
+    exit 1
+}
+
+

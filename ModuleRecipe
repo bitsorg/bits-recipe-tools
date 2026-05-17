@@ -46,7 +46,7 @@ FULL_BUILD_REQUIRES=${FULL_BUILD_REQUIRES:-$BUILD_REQUIRES}
 echo FULL_BUILD_REQUIRES=$FULL_BUILD_REQUIRES >&2
 
 # Dependencies
-for x in `env | cut -f1 -d= | grep -v "^DEFAULT_" | grep -v PKGREVISION | grep -v ALIBUILD_RECIPE_TOOLS | grep REVISION | sed -e 's/_REVISION//'`; do
+for x in `env | cut -f1 -d= | grep -v "^DEFAULT_" | grep -v PKGREVISION | grep -v _RECIPE_TOOLS | grep REVISION | sed -e 's/_REVISION//'`; do
   REVISION_VALUE=`eval "echo $(echo \\$$(echo ${x}_REVISION))"`
   VERSION_VALUE=`eval "echo $(echo \\$$(echo ${x}_VERSION))"`
   ROOT_PATH_VALUE=`eval "echo $(echo \\$$(echo ${x}_ROOT))"`
