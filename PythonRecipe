@@ -1,0 +1,69 @@
+# PythonRecipe — standard recipe for Python packages (bits-recipe-tools)
+#
+# Uses pip to install into an isolated prefix, then patches shebangs for
+# relocatability.  Mirrors the install pattern used by lcgcmake's
+# pyexternals/CMakeLists.txt (pip install --no-deps --root=/ --prefix=...).
+#
+# Variables exported by this file (available to recipe overrides):
+#
+#   PYTHON_EXE          full path to the python3 interpreter
+#   PYTHON_MAJOR_MINOR  e.g. "3.12"
+#   SITE_PACKAGES       $INSTALLROOT/lib/python3.12/site-packages
+#
+# Requirement: Python must be in the recipe's `requires:` list so that
+# Python_ROOT is set in the environment before this file is sourced.
+
+PYTHON_EXE="${Python_ROOT}/bin/python3"
+PYTHON_MAJOR_MINOR=$(${PYTHON_EXE} -c 'import sys; print("%d.%d" % sys.version_info[:2])')
+SITE_PACKAGES="${INSTALLROOT}/lib/python${PYTHON_MAJOR_MINOR}/site-packages"
+
+# Build PYTHONPATH from every dependency that installed Python modules.
+# bits sets *_ROOT for each dep via init.sh sourcing; we add any whose
+# lib/pythonX.Y/site-packages directory actually exists.
+for _root_var in $(env | grep -E '^[A-Z0-9_]+_ROOT=' | cut -d= -f1 | sort -u); do
+  _root_val="${!_root_var}"
+  _sp="${_root_val}/lib/python${PYTHON_MAJOR_MINOR}/site-packages"
+  [ -d "${_sp}" ] || continue
+  export PYTHONPATH="${_sp}${PYTHONPATH:+:${PYTHONPATH}}"
+done
+unset _root_var _root_val _sp
+
+function Prepare() {
+  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
+}
+
+function Configure() { true; }
+function Make()      { true; }
+
+function MakeInstall() {
+  mkdir -p "${SITE_PACKAGES}"
+  # --no-deps             deps are managed by bits, not pip
+  # --no-build-isolation  use already-installed build tools (setuptools, etc.)
+  # --root=/ --prefix=    install directly into our package tree; no staging dir
+  "${PYTHON_EXE}" -m pip install \
+    --no-deps --no-build-isolation --root=/ --prefix="${INSTALLROOT}" .
+}
+
+function PostInstall() {
+  # Replace hardcoded python paths in installed scripts with #!/usr/bin/env python3.
+  # Mirrors lcgcmake's pyexternals/Python_postinstall.sh.
+  for _f in "${INSTALLROOT}/bin/"*; do
+    [ -f "${_f}" ] || continue
+    head -n1 "${_f}" | grep -q "/python" || continue
+    sed -i.bak "1s|.*|#!/usr/bin/env python3|" "${_f}"
+    rm -f "${_f}.bak"
+  done
+  unset _f
+}
+
+function Clean() { true; }
+
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
+
+function Run() {
+  case $1 in
+    Prepare) Prepare ;;
+    Build)   Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
+  esac
+}

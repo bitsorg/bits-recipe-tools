@@ -1,0 +1,44 @@
+MESON_BUILDDIR="${MESON_BUILDDIR:-_build}"
+
+function Prepare() {
+  rsync -av --delete --delete-excluded $SOURCEDIR/ ./
+}
+
+function Configure() {
+  meson setup ${MESON_BUILDDIR} --prefix=$INSTALLROOT ${MESON_EXTRA_OPTIONS}
+}
+
+function Make() {
+  meson compile -C ${MESON_BUILDDIR}
+}
+
+function MakeInstall() {
+  meson install -C ${MESON_BUILDDIR}
+}
+
+function PostInstall() {
+  true
+}
+
+function Clean() {
+  rm -f $INSTALLROOT/lib/*.la
+}
+
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
+
+function Run() {
+    mkdir -p build
+    pushd build
+    case $1 in
+        Prepare)
+              Prepare
+              ;;
+        Build)
+              Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+              ;;
+        *)
+              Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean
+              ;;
+    esac
+    popd
+}
