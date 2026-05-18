@@ -1,19 +1,35 @@
-CMAKE_BUILDDIR="${CMAKE_BUILDDIR:-.}"
+# CMakeRecipe — standard recipe for CMake-based packages (bits-recipe-tools)
+#
+# Overrideable variables (set before or after sourcing this file):
+#   CMAKE_OPTIONS   extra flags passed to cmake --build (default: empty)
+#
+# Override any of Configure() / Make() / MakeInstall() / PostInstall() / Clean()
+# in the recipe body after sourcing this file.  The most common override is
+# Configure(), where package-specific -D flags are added:
+#
+#   function Configure() {
+#     cmake "$SOURCEDIR" \
+#       -DCMAKE_INSTALL_PREFIX="$INSTALLROOT" \
+#       -DCMAKE_BUILD_TYPE=Release \
+#       -DFOO=ON
+#   }
 
 function Prepare() {
-  rsync -av --delete --delete-excluded $SOURCEDIR/ ./
+  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
 }
 
 function Configure() {
-  cmake ${CMAKE_BUILDDIR} -DCMAKE_INSTALL_PREFIX="$INSTALLROOT" --log-level DEBUG 
+  cmake "$SOURCEDIR" \
+    -DCMAKE_INSTALL_PREFIX="$INSTALLROOT" \
+    -DCMAKE_BUILD_TYPE=Release
 }
 
 function Make() {
-  cmake --build ${CMAKE_BUILDDIR} -- ${CMAKE_OPTIONS} ${JOBS:+-j$JOBS}
+  cmake --build . -- ${CMAKE_OPTIONS} ${JOBS:+-j$JOBS}
 }
 
 function MakeInstall() {
-  cmake --install ${CMAKE_BUILDDIR} 
+  cmake --install .
 }
 
 function PostInstall() {
@@ -21,29 +37,20 @@ function PostInstall() {
 }
 
 function Clean() {
-  rm -f $INSTALLROOT/lib/*.la
-  rm -rf $INSTALLROOT/share
+  find "$INSTALLROOT/lib" -name '*.la' -delete 2>/dev/null || true
 }
 
 . ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
 
 function Run() {
-    mkdir -p build
-    pushd build
-    case $1 in
-	Prepare)
-  	  Prepare && popd && return
-	  exit 1
-	  ;;
-	Build)
-          Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && popd && return
-	  exit 1
-          ;;
-	*)
-          Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && popd && return
-          ;;
-    esac
-    exit 1
+  mkdir -p build
+  pushd build
+  trap 'popd' EXIT
+  case $1 in
+    Prepare) Prepare ;;
+    Build)   Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
+  esac
+  trap - EXIT
+  popd
 }
-
-

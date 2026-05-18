@@ -1,14 +1,23 @@
+# AutoToolsRecipe — standard recipe for autoconf/automake packages (bits-recipe-tools)
+#
+# Override Configure() to pass extra flags:
+#
+#   function Configure() {
+#     [ -f autogen.sh ] && ./autogen.sh
+#     ./configure --prefix="$INSTALLROOT" --enable-foo
+#   }
+
 function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded $SOURCEDIR/ ./
+  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
 }
 
 function Configure() {
   [ -f autogen.sh ] && ./autogen.sh
-  ./configure --prefix=$INSTALLROOT
+  ./configure --prefix="$INSTALLROOT"
 }
 
 function Make() {
-  make ${JOBS:+-j $JOBS} 
+  make ${JOBS:+-j $JOBS}
 }
 
 function MakeInstall() {
@@ -20,26 +29,15 @@ function PostInstall() {
 }
 
 function Clean() {
-  rm -f $INSTALLROOT/lib/*.la
+  find "$INSTALLROOT/lib" -name '*.la' -delete 2>/dev/null || true
 }
 
 . ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
 
 function Run() {
-    case $1 in
-	Prepare)
-  	  Prepare && return
-	  exit 1
-	  ;;
-	Build)
-	  Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && return
-	  exit 1
-          ;;
-	*)
-          Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean && return
-	  exit 1
-          ;;
-    esac
+  case $1 in
+    Prepare) Prepare ;;
+    Build)   Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
+  esac
 }
-
-

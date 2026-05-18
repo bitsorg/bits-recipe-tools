@@ -4,8 +4,9 @@ MODULEFILE=$MODULEDIR/$PKGNAME
 MODULE_OPTIONS="--bin --lib"
 
 function GenerateModule() {
-# --bin    prepends $PKG_ROOT/bin to PATH
-# --lib    prepends $PKG_ROOT/lib to LD_LIBRARY_PATH, sets ${PKGNAME}_INCLUDE_DIR
+# --bin    prepends $PKG_ROOT/bin to PATH, sets ${PKGNAME}_ROOT
+# --lib    prepends $PKG_ROOT/lib and $PKG_ROOT/lib64 to LD_LIBRARY_PATH,
+#          sets ${PKGNAME}_INCLUDE_DIR  (lib64 is a no-op if the dir does not exist)
 # --inc    sets ${PKGNAME}_INCLUDE_DIR
 # --cmake  prepends $PKG_ROOT to CMAKE_PREFIX_PATH
 # --root   sets ${PKGNAME}_ROOT
@@ -66,6 +67,7 @@ if [ X$HAS_BIN = Xtrue ]; then
 fi
 if [ X$HAS_LIB = Xtrue ]; then
   printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib\n"
+  printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib64\n"
 fi
 if [ X$HAS_INC = Xtrue ]; then
   printf "setenv ${PKGNAME}_INCLUDE_DIR \$PKG_ROOT/include\n"

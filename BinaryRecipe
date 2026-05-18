@@ -1,0 +1,34 @@
+# BinaryRecipe — recipe for pre-built binary tarballs (bits-recipe-tools)
+#
+# Use for packages distributed as pre-compiled binaries (JDKs, CUDA add-ons,
+# proprietary drivers, etc.).  The tarball is unpacked into $INSTALLROOT as-is;
+# no compile step is run.
+#
+# Override MakeInstall() if the tarball layout differs from the target layout.
+# Override PostInstall() for any post-unpack fixups (e.g. chmod, rpath patching).
+
+function Prepare() {
+  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
+}
+
+function Configure() { true; }
+function Make()      { true; }
+
+function MakeInstall() {
+  mkdir -p "${INSTALLROOT}"
+  rsync -av --delete --exclude '**/.git' --delete-excluded ./ "${INSTALLROOT}"/
+}
+
+function PostInstall() { true; }
+
+function Clean() { true; }
+
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
+
+function Run() {
+  case $1 in
+    Prepare) Prepare ;;
+    Build)   MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && MakeInstall && MakeModule && PostInstall && Clean ;;
+  esac
+}

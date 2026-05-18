@@ -1,8 +1,6 @@
 #!/bin/sh
-if [ x$BITS_RECIPE_TOOLS_ROOT = x ]
-then
-   dir=$(dirname $(dirname $0))
-   export $BITS_RECIPE_TOOLS_ROOT=$dir
+if [ -z "$BITS_RECIPE_TOOLS_ROOT" ]; then
+  BITS_RECIPE_TOOLS_ROOT=$(dirname "$(dirname "$0")")
+  export BITS_RECIPE_TOOLS_ROOT
 fi
-echo $BITS_RECIPE_TOOLS_ROOT/$1
-
+echo "$BITS_RECIPE_TOOLS_ROOT/$1"
