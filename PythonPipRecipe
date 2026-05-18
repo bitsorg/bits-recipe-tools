@@ -46,6 +46,13 @@ function MakeInstall() {
     --no-deps --ignore-installed \
     --root=/ --prefix="${INSTALLROOT}" \
     "${PKGNAME}==${PKGVERSION}"
+  # Verify pip actually installed something — catches silent failures where pip
+  # exits 0 but the package was not found or the index was unreachable.
+  if [ -z "$(ls -A "${SITE_PACKAGES}" 2>/dev/null)" ]; then
+    echo "PythonPipRecipe: pip exited 0 but ${SITE_PACKAGES} is empty" >&2
+    echo "PythonPipRecipe: check that ${PKGNAME}==${PKGVERSION} exists on the configured index" >&2
+    return 1
+  fi
 }
 
 function PostInstall() {
