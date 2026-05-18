@@ -39,9 +39,12 @@ function MakeInstall() {
   mkdir -p "${SITE_PACKAGES}"
   # --no-deps             deps are managed by bits, not pip
   # --no-build-isolation  use already-installed build tools (setuptools, etc.)
+  # --ignore-installed    don't try to uninstall system packages before installing;
+  #                       avoids "Permission denied" when a system copy exists
   # --root=/ --prefix=    install directly into our package tree; no staging dir
   "${PYTHON_EXE}" -m pip install \
-    --no-deps --no-build-isolation --root=/ --prefix="${INSTALLROOT}" .
+    --no-deps --no-build-isolation --ignore-installed \
+    --root=/ --prefix="${INSTALLROOT}" .
 }
 
 function PostInstall() {
