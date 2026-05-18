@@ -16,14 +16,21 @@
 # Requirement: Python must be in the recipe's `requires:` list so that
 # Python_ROOT is set in the environment before this file is sourced.
 
-PYTHON_EXE="${PYTHON_ROOT}/bin/python3"
+# bits' init.sh exports _ROOT vars using the package: field name verbatim
+# (e.g. Python_ROOT for "package: Python").  Module files now generate uppercase
+# names (PYTHON_ROOT) but Python itself may not have been rebuilt yet, so we
+# fall back to the mixed-case form that bits always provides.
+_PYTHON_ROOT="${PYTHON_ROOT:-${Python_ROOT}}"
+PYTHON_EXE="${_PYTHON_ROOT}/bin/python3"
 PYTHON_MAJOR_MINOR=$(${PYTHON_EXE} -c 'import sys; print("%d.%d" % sys.version_info[:2])')
 SITE_PACKAGES="${INSTALLROOT}/lib/python${PYTHON_MAJOR_MINOR}/site-packages"
 
 # Build PYTHONPATH from every dependency that installed Python modules.
 # bits sets *_ROOT for each dep via init.sh sourcing; we add any whose
 # lib/pythonX.Y/site-packages directory actually exists.
-for _root_var in $(env | grep -E '^[A-Z][A-Z0-9_]*_ROOT=' | cut -d= -f1 | sort -u); do
+# The regex accepts both mixed-case names from bits init.sh (e.g. meson_python_ROOT,
+# Python_ROOT) and uppercase names from new-style module files (MESON_PYTHON_ROOT).
+for _root_var in $(env | grep -E '^[A-Za-z][A-Za-z0-9_]*_ROOT=' | cut -d= -f1 | sort -u); do
   _root_val="${!_root_var}"
   _sp="${_root_val}/lib/python${PYTHON_MAJOR_MINOR}/site-packages"
   [ -d "${_sp}" ] || continue
