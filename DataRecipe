@@ -6,28 +6,9 @@
 #
 # Override MakeInstall() if the source layout differs from the target layout.
 
-function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
-}
-
-function Configure() { true; }
-function Make()      { true; }
+. ${BITS_RECIPE_TOOLS_ROOT}/BinaryRecipe
 
 function MakeInstall() {
   mkdir -p "${INSTALLROOT}"
   rsync -av --delete --exclude '**/.git' ./ "${INSTALLROOT}"/
-}
-
-function PostInstall() { true; }
-
-function Clean() { true; }
-
-. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
-
-function Run() {
-  case $1 in
-    Prepare) Prepare ;;
-    Build)   Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
-    *)       Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
-  esac
 }

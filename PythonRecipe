@@ -54,6 +54,10 @@ function MakeInstall() {
     --root=/ --prefix="${INSTALLROOT}" .
 }
 
+function UnitTest() {
+  true
+}
+
 function PostInstall() {
   # Replace hardcoded python paths in installed scripts with #!/usr/bin/env python3.
   # Mirrors lcgcmake's pyexternals/Python_postinstall.sh.
@@ -74,8 +78,8 @@ function Run() {
   local rc=0
   case $1 in
     Prepare) Prepare ;;
-    Build)   Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
-    *)       Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
+    Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
   esac || rc=$?
   return $rc
 }

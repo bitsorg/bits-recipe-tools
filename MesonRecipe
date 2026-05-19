@@ -27,6 +27,10 @@ function Make() {
   meson compile -C "${MESON_BUILDDIR}"
 }
 
+function UnitTest() {
+  true
+}
+
 function MakeInstall() {
   meson install -C "${MESON_BUILDDIR}"
 }
@@ -45,8 +49,8 @@ function Run() {
   local rc=0
   case $1 in
     Prepare) Prepare ;;
-    Build)   Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
-    *)       Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
+    Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
   esac || rc=$?
   return $rc
 }

@@ -3,7 +3,7 @@
 # Overrideable variables (set before or after sourcing this file):
 #   CMAKE_OPTIONS   extra flags passed to cmake --build (default: empty)
 #
-# Override any of Configure() / Make() / MakeInstall() / PostInstall() / Clean()
+# Override any of Configure() / Make() / UnitTest() / MakeInstall() / PostInstall() / Clean()
 # in the recipe body after sourcing this file.  The most common override is
 # Configure(), where package-specific -D flags are added:
 #
@@ -28,6 +28,10 @@ function Make() {
   cmake --build . -- ${CMAKE_OPTIONS} ${JOBS:+-j$JOBS}
 }
 
+function UnitTest() {
+  true
+}
+
 function MakeInstall() {
   cmake --install .
 }
@@ -48,8 +52,8 @@ function Run() {
   pushd build
   case $1 in
     Prepare) Prepare ;;
-    Build)   Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
-    *)       Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
+    Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
   esac || rc=$?
   popd
   return $rc

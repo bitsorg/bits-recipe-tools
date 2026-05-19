@@ -1,0 +1,58 @@
+# MakeRecipe — recipe for packages that build with plain make (no configure step)
+#
+# Use this recipe when a package ships only a Makefile with no autoconf or cmake.
+# The default Configure() is a no-op; override Make() and/or MakeInstall() as needed.
+#
+# Typical pattern for packages with non-standard install targets:
+#
+#   function Make() {
+#     rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
+#     make ${JOBS:+-j $JOBS}
+#     make install PREFIX="$INSTALLROOT"
+#   }
+#   function MakeInstall() { true; }
+#
+# Variables available:
+#   SOURCEDIR     path to the unpacked source tree
+#   INSTALLROOT   path to the package install prefix
+#   JOBS          parallel job count (may be unset; always guard with ${JOBS:+-j$JOBS})
+
+function Prepare() {
+  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
+}
+
+function Configure() {
+  true
+}
+
+function Make() {
+  make ${JOBS:+-j $JOBS}
+}
+
+function UnitTest() {
+  true
+}
+
+function MakeInstall() {
+  make install PREFIX="${INSTALLROOT}"
+}
+
+function PostInstall() {
+  true
+}
+
+function Clean() {
+  find "$INSTALLROOT/lib" -name '*.la' -delete 2>/dev/null || true
+}
+
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
+
+function Run() {
+  local rc=0
+  case $1 in
+    Prepare) Prepare ;;
+    Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+  esac || rc=$?
+  return $rc
+}

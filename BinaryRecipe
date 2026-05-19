@@ -14,6 +14,8 @@ function Prepare() {
 function Configure() { true; }
 function Make()      { true; }
 
+function UnitTest() { true; }
+
 function MakeInstall() {
   mkdir -p "${INSTALLROOT}"
   rsync -av --delete --exclude '**/.git' --delete-excluded ./ "${INSTALLROOT}"/
@@ -26,9 +28,11 @@ function Clean() { true; }
 . ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
 
 function Run() {
+  local rc=0
   case $1 in
     Prepare) Prepare ;;
     Build)   MakeInstall && MakeModule && PostInstall && Clean ;;
     *)       Prepare && MakeInstall && MakeModule && PostInstall && Clean ;;
-  esac
+  esac || rc=$?
+  return $rc
 }

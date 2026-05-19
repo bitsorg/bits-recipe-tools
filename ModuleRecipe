@@ -4,13 +4,22 @@ MODULEFILE=$MODULEDIR/$PKGNAME
 MODULE_OPTIONS="--bin --lib"
 
 function GenerateModule() {
-# --bin    prepends $PKG_ROOT/bin to PATH, sets ${PKGNAME}_ROOT
-# --lib    prepends $PKG_ROOT/lib and $PKG_ROOT/lib64 to LD_LIBRARY_PATH,
-#          sets ${PKGNAME}_INCLUDE_DIR  (lib64 is a no-op if the dir does not exist)
-# --inc    sets ${PKGNAME}_INCLUDE_DIR
-# --cmake  prepends $PKG_ROOT to CMAKE_PREFIX_PATH
-# --root   sets ${PKGNAME}_ROOT
-# --python prepends $PKG_ROOT/lib/pythonX.Y/site-packages to PYTHONPATH
+# --bin       prepends $PKG_ROOT/bin to PATH, sets ${PKGNAME}_ROOT
+# --lib       prepends $PKG_ROOT/lib and $PKG_ROOT/lib64 to LD_LIBRARY_PATH,
+#             sets ${PKGNAME}_INCLUDE_DIR  (lib64 is a no-op if the dir does not exist)
+# --inc       sets ${PKGNAME}_INCLUDE_DIR
+# --cmake     prepends $PKG_ROOT to CMAKE_PREFIX_PATH
+# --root      sets ${PKGNAME}_ROOT
+# --python    prepends $PKG_ROOT/lib/pythonX.Y/site-packages to PYTHONPATH
+#             (versioned; requires PYTHON_MAJOR_MINOR to be set, e.g. via PythonRecipe)
+# --root-inc  prepends $PKG_ROOT/include to ROOT_INCLUDE_PATH
+#             (used by ROOT's ACLiC/cling to locate headers; add for all HEP libraries)
+# --pylib     prepends $PKG_ROOT/lib to PYTHONPATH
+#             (for packages that install .py files directly under lib/, e.g. ROOT/PyROOT)
+# --pysite    prepends $PKG_ROOT/lib/python/site-packages to PYTHONPATH
+#             (for C++ packages with Python bindings at an unversioned site-packages path)
+# --pkgconfig prepends $PKG_ROOT/lib/pkgconfig to PKG_CONFIG_PATH
+#             (for packages that install .pc files)
 
 HAS_BIN=
 HAS_LIB=
@@ -18,15 +27,23 @@ HAS_CMAKE=
 HAS_ROOT=
 HAS_INC=
 HAS_PYTHON=
+HAS_ROOT_INC=
+HAS_PYLIB=
+HAS_PYSITE=
+HAS_PKGCONFIG=
 while [ "X$#" != "X0" ]; do
   case $1 in
-    --bin)    HAS_BIN=true; HAS_ROOT=true; shift ;;
-    --lib)    HAS_LIB=true; HAS_INC=true; shift ;;
-    --inc)    HAS_INC=true; shift ;;
-    --cmake)  HAS_CMAKE=true; shift ;;
-    --root)   HAS_ROOT=true; shift ;;
-    --python) HAS_PYTHON=true; shift ;;
-    *)        shift ;;
+    --bin)       HAS_BIN=true; HAS_ROOT=true; shift ;;
+    --lib)       HAS_LIB=true; HAS_INC=true; shift ;;
+    --inc)       HAS_INC=true; shift ;;
+    --cmake)     HAS_CMAKE=true; shift ;;
+    --root)      HAS_ROOT=true; shift ;;
+    --python)    HAS_PYTHON=true; shift ;;
+    --root-inc)  HAS_ROOT_INC=true; shift ;;
+    --pylib)     HAS_PYLIB=true; shift ;;
+    --pysite)    HAS_PYSITE=true; shift ;;
+    --pkgconfig) HAS_PKGCONFIG=true; shift ;;
+    *)           shift ;;
   esac
 done
 
@@ -81,6 +98,18 @@ if [ X$HAS_ROOT = Xtrue ]; then
 fi
 if [ X$HAS_PYTHON = Xtrue ] && [ -n "${PYTHON_MAJOR_MINOR:-}" ]; then
   printf "prepend-path PYTHONPATH \$PKG_ROOT/lib/python${PYTHON_MAJOR_MINOR}/site-packages\n"
+fi
+if [ X$HAS_ROOT_INC = Xtrue ]; then
+  printf "prepend-path ROOT_INCLUDE_PATH \$PKG_ROOT/include\n"
+fi
+if [ X$HAS_PYLIB = Xtrue ]; then
+  printf "prepend-path PYTHONPATH \$PKG_ROOT/lib\n"
+fi
+if [ X$HAS_PYSITE = Xtrue ]; then
+  printf "prepend-path PYTHONPATH \$PKG_ROOT/lib/python/site-packages\n"
+fi
+if [ X$HAS_PKGCONFIG = Xtrue ]; then
+  printf "prepend-path PKG_CONFIG_PATH \$PKG_ROOT/lib/pkgconfig\n"
 fi
 echo
 }
