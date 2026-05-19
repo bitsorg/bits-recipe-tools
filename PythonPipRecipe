@@ -79,9 +79,11 @@ function Clean() { true; }
 . ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
 
 function Run() {
+  local rc=0
   case $1 in
     Prepare) Prepare ;;
     Build)   Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
     *)       Prepare && Configure && Make && MakeInstall && MakeModule && PostInstall && Clean ;;
-  esac
+  esac || rc=$?
+  return $rc
 }
