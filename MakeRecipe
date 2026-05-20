@@ -18,7 +18,7 @@
 #   JOBS          parallel job count (may be unset; always guard with ${JOBS:+-j$JOBS})
 
 function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
+  rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
 }
 
 function Configure() {

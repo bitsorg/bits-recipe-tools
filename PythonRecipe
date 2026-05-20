@@ -36,7 +36,7 @@ done
 unset _root_var _root_val _sp
 
 function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
+  rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
 }
 
 function Configure() { true; }

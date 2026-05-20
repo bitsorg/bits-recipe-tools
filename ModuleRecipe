@@ -110,6 +110,7 @@ if [ X$HAS_PYSITE = Xtrue ]; then
 fi
 if [ X$HAS_PKGCONFIG = Xtrue ]; then
   printf "prepend-path PKG_CONFIG_PATH \$PKG_ROOT/lib/pkgconfig\n"
+  printf "prepend-path PKG_CONFIG_PATH \$PKG_ROOT/lib64/pkgconfig\n"
 fi
 echo
 }

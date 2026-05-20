@@ -16,7 +16,7 @@
 MESON_BUILDDIR="${MESON_BUILDDIR:-_build}"
 
 function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
+  rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
 }
 
 function Configure() {

@@ -15,12 +15,13 @@
 #   }
 
 function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
+  rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
 }
 
 function Configure() {
   cmake "$SOURCEDIR" \
     -DCMAKE_INSTALL_PREFIX="$INSTALLROOT" \
+    -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_BUILD_TYPE=Release
 }
 
