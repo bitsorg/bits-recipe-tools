@@ -1,0 +1,134 @@
+# PreloadRecipe — CVMFS startup preload helper for bits-recipe-tools
+#
+# Source this file (or it will be sourced automatically when included from
+# another Recipe file via BITS_RECIPE_TOOLS_ROOT), then call cvmfs_preload
+# after the package is fully installed into INSTALLROOT.
+#
+# cvmfs_preload traces the application's startup file accesses with strace,
+# records the set of paths that were opened, and injects them into the
+# artifact JSON so that cvmfs_prepub can publish a .<app>.cvmfspreload file
+# alongside the binary.  The CVMFS client bulk-fetches all listed CAS objects
+# before launching the application, eliminating the per-library round-trip
+# latency on a cold cache.
+#
+# Required environment variables (set by the build infrastructure):
+#   INSTALLROOT    — absolute path where the package is installed under the
+#                    fake CVMFS tree, e.g. /cvmfs/alice.cern.ch/sw/ROOT/6.24.06-4
+#   ARTIFACT_JSON  — path to the artifact JSON descriptor consumed by cvmfs_prepub
+#
+# Usage:
+#   cvmfs_preload <relative-executable> [args...]
+#
+# Example (in init.sh, after Make/Install):
+#   . ${BITS_RECIPE_TOOLS_ROOT}/PreloadRecipe
+#   cvmfs_preload bin/root -b -q
+#
+# The relative-executable is relative to INSTALLROOT.  Paths recorded in the
+# artifact JSON are also INSTALLROOT-relative (e.g. "bin/root"), which is how
+# they appear as tar entries on the prepub side once the bundle is extracted.
+# This works regardless of whether INSTALLROOT lives under /cvmfs/ or a local
+# development path.
+#
+# Notes:
+#   • strace must be available on the build node (standard on all Linux builders).
+#   • The function is a no-op when INSTALLROOT or ARTIFACT_JSON is unset, or
+#     when strace is not found — the build continues without a preload file.
+#   • python3 is required for JSON injection (available in all build containers).
+#   • The -b flag suppresses ROOT's splash banner; -q suppresses prompts.
+#     Adjust args as needed for other applications.
+
+# Preload is called by Run() after PostInstall().  The default is a no-op;
+# override it in your recipe to capture startup file accesses:
+#
+#   function Preload() {
+#     cvmfs_preload bin/root -b -q
+#   }
+function Preload() { true; }
+
+cvmfs_preload() {
+    local exe="$1"; shift
+    local exe_abs="${INSTALLROOT}/${exe}"
+
+    # ── Prerequisite checks ────────────────────────────────────────────────────
+    if [[ -z "${INSTALLROOT:-}" ]]; then
+        echo "cvmfs_preload: INSTALLROOT is not set, skipping" >&2
+        return 0
+    fi
+    if [[ -z "${ARTIFACT_JSON:-}" ]]; then
+        echo "cvmfs_preload: ARTIFACT_JSON is not set, skipping" >&2
+        return 0
+    fi
+    if ! command -v strace &>/dev/null; then
+        echo "cvmfs_preload: strace not found, skipping" >&2
+        return 0
+    fi
+    if [[ ! -x "${exe_abs}" ]]; then
+        echo "cvmfs_preload: executable not found or not executable: ${exe_abs}" >&2
+        return 1
+    fi
+
+    # ── Run under strace ───────────────────────────────────────────────────────
+    local strace_log paths_file
+    strace_log=$(mktemp /tmp/cvmfs-strace-XXXXXX.log)
+    paths_file=$(mktemp /tmp/cvmfs-paths-XXXXXX.txt)
+    # shellcheck disable=SC2064
+    trap "rm -f '${strace_log}' '${paths_file}'" RETURN
+
+    echo "cvmfs_preload: tracing '${exe} $*' startup..." >&2
+
+    # Capture all open/openat syscalls; follow forks (-f) so dynamic linker
+    # children are also traced.  Ignore the exit code — applications may exit
+    # non-zero by design (e.g. root -b -q exits 0 but other tools may differ).
+    strace -f -e trace=open,openat -o "${strace_log}" "${exe_abs}" "$@" 2>/dev/null || true
+
+    # Extract paths:
+    #  1. Pull all quoted path arguments from the strace log.
+    #  2. Keep only those rooted under INSTALLROOT.
+    #  3. Strip the INSTALLROOT/ prefix — the resulting paths are relative to
+    #     INSTALLROOT, which is exactly how they appear as tar entries on the
+    #     prepub side once the bundle is extracted (works regardless of whether
+    #     INSTALLROOT is under /cvmfs/ or a local development path).
+    #  4. Deduplicate and sort.
+    grep -oP '(?<=open\(|openat\(AT_FDCWD, )\"[^\"]+\"' "${strace_log}" \
+        | tr -d '"' \
+        | grep "^${INSTALLROOT}/" \
+        | sed "s|^${INSTALLROOT}/||" \
+        | sort -u \
+        > "${paths_file}"
+
+    local count
+    count=$(wc -l < "${paths_file}")
+
+    if [[ "${count}" -eq 0 ]]; then
+        echo "cvmfs_preload: no paths captured under ${INSTALLROOT}, skipping" >&2
+        return 0
+    fi
+
+    echo "cvmfs_preload: captured ${count} paths, injecting into ${ARTIFACT_JSON}" >&2
+
+    # ── Inject preload section into the artifact JSON ─────────────────────────
+    # python3 is universally available in build containers; it handles Unicode
+    # and avoids shell quoting pitfalls when path lists grow large.
+    python3 - "${ARTIFACT_JSON}" "${exe}" "${paths_file}" <<'PYEOF'
+import json, sys
+
+artifact_file = sys.argv[1]
+executable    = sys.argv[2]
+paths_file    = sys.argv[3]
+
+with open(paths_file) as f:
+    paths = [line.rstrip('\n') for line in f if line.strip()]
+
+with open(artifact_file) as f:
+    artifact = json.load(f)
+
+artifact['preload_exe']   = executable
+artifact['preload_paths'] = paths
+
+with open(artifact_file, 'w') as f:
+    json.dump(artifact, f, indent=2)
+    f.write('\n')
+PYEOF
+
+    echo "cvmfs_preload: done — ${count} startup paths recorded for ${exe}" >&2
+}
