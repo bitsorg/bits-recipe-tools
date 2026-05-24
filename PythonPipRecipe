@@ -1,11 +1,18 @@
 # PythonPipRecipe — recipe for pure-Python packages installed from PyPI
 #
 # Installs the package by running:
-#   python -m pip install <PKGNAME>==<PKGVERSION>
+#   python -m pip install <PYPI_NAME>==<PKGVERSION>
 #
 # No source tarball is required; omit the `sources:` field in the recipe header.
 # The package name passed to pip is derived from PKGNAME (set by bits from the
 # `package:` field).  pip normalises underscores and hyphens, so both forms work.
+#
+# When the PyPI package name differs from the bits package name, set PYPI_NAME
+# in the recipe before or after the bits-include line, e.g.:
+#   PYPI_NAME="python-prctl"
+#   . $(bits-include PythonPipRecipe)
+# PYPI_NAME overrides the default (PKGNAME) only for the pip install call;
+# all other bits machinery continues to use PKGNAME.
 #
 # Requirement: Python must be in the recipe's `requires:` list so that
 # Python_ROOT is set in the environment before this file is sourced.
@@ -17,6 +24,9 @@ function Prepare() { true; }
 
 function MakeInstall() {
   mkdir -p "${SITE_PACKAGES}"
+  # PYPI_NAME may be set by the recipe to override the PyPI package name when
+  # it differs from the bits package name (e.g. PYPI_NAME="python-prctl").
+  local _pip_name="${PYPI_NAME:-${PKGNAME}}"
   # --no-deps          deps are managed by bits, not pip
   # --ignore-installed don't try to uninstall system packages before installing;
   #                    avoids "Permission denied" when a system copy exists
@@ -24,12 +34,12 @@ function MakeInstall() {
   "${PYTHON_EXE}" -m pip install \
     --no-deps --ignore-installed \
     --root=/ --prefix="${INSTALLROOT}" \
-    "${PKGNAME}==${PKGVERSION}"
+    "${_pip_name}==${PKGVERSION}"
   # Verify pip actually installed something — catches silent failures where pip
   # exits 0 but the package was not found or the index was unreachable.
   if [ -z "$(ls -A "${SITE_PACKAGES}" 2>/dev/null)" ]; then
     echo "PythonPipRecipe: pip exited 0 but ${SITE_PACKAGES} is empty" >&2
-    echo "PythonPipRecipe: check that ${PKGNAME}==${PKGVERSION} exists on the configured index" >&2
+    echo "PythonPipRecipe: check that ${_pip_name}==${PKGVERSION} exists on the configured index" >&2
     return 1
   fi
 }
