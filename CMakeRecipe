@@ -3,9 +3,10 @@
 # Overrideable variables (set before or after sourcing this file):
 #   CMAKE_OPTIONS   extra flags passed to cmake --build (default: empty)
 #
-# Override any of Configure() / Make() / UnitTest() / MakeInstall() / PostInstall() / Clean()
-# in the recipe body after sourcing this file.  The most common override is
-# Configure(), where package-specific -D flags are added:
+# Override any of SetBuildEnv() / Configure() / Make() / UnitTest() /
+# MakeInstall() / PostInstall() / Clean() in the recipe body after sourcing
+# this file.  The most common override is Configure(), where package-specific
+# -D flags are added:
 #
 #   function Configure() {
 #     cmake "$SOURCEDIR" \
@@ -13,13 +14,21 @@
 #       -DCMAKE_BUILD_TYPE=Release \
 #       -DFOO=ON
 #   }
+#
+# Override SetBuildEnv() to add package-specific environment setup that must
+# be in place before Configure() runs (e.g. extra PKG_CONFIG_PATH entries).
+# Always call the base implementation first to keep the CMP0144 fix active:
+#
+#   function SetBuildEnv() {
+#     _SetBuildEnvBase
+#     export PKG_CONFIG_PATH="${MYPKG_ROOT}/lib/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
+#   }
 
-function Prepare() {
-  # CMake 3.27+ (policy CMP0144) no longer uses uppercase *_ROOT environment
-  # variables for find_package().  Build CMAKE_PREFIX_PATH from every *_ROOT
-  # variable bits has set so that cmake config files are found regardless of
-  # which variable name convention a project uses.  Setting this as an env var
-  # (not a -D flag) makes it transparent to all custom Configure() overrides.
+# SetBuildEnv_base — build CMAKE_PREFIX_PATH from every *_ROOT env var bits
+# has set, so that CMake 3.27+ find_package() (policy CMP0144) locates config
+# files for all dependencies.  Called unconditionally from Run() before any
+# build step so it is active for both Prepare+Configure and Build-only paths.
+function _SetBuildEnvBase() {
   local _pfx="" _root_var _root_val
   for _root_var in $(env | grep -E '^[A-Za-z][A-Za-z0-9_]*_ROOT=' | cut -d= -f1 | sort -u); do
     _root_val="${!_root_var}"
@@ -28,7 +37,13 @@ function Prepare() {
   done
   [ -n "${_pfx}" ] && export CMAKE_PREFIX_PATH="${_pfx}${CMAKE_PREFIX_PATH:+;${CMAKE_PREFIX_PATH}}"
   unset _pfx _root_var _root_val
+}
 
+function SetBuildEnv() {
+  _SetBuildEnvBase
+}
+
+function Prepare() {
   rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
 }
 
@@ -64,6 +79,7 @@ function Clean() {
 
 function Run() {
   local rc=0
+  SetBuildEnv
   mkdir -p build
   pushd build
   case $1 in
