@@ -15,15 +15,34 @@
 
 MESON_BUILDDIR="${MESON_BUILDDIR:-_build}"
 
+# The meson binary was installed by pip into MESON_ROOT with the bits Python
+# shebang, but that Python's sys.path does not include MESON_ROOT's
+# site-packages.  This function is called at the start of every meson
+# invocation so mesonbuild is importable at build execution time (not just
+# at recipe source/SPEC compile time).
+function _meson_fixenv() {
+  if [ -n "${MESON_ROOT}" ]; then
+    local _pyver
+    _pyver=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null)
+    export PYTHONPATH="${MESON_ROOT}/lib/python${_pyver}/site-packages${PYTHONPATH:+:${PYTHONPATH}}"
+  fi
+}
+
 function Prepare() {
+  # Set PYTHONPATH early so mesonbuild is importable in every subsequent
+  # function — including custom Configure() overrides that don't call
+  # _meson_fixenv themselves.  The export persists for the whole SPEC run.
+  _meson_fixenv
   rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
 }
 
 function Configure() {
+  _meson_fixenv
   meson setup "${MESON_BUILDDIR}" --prefix="$INSTALLROOT" ${MESON_EXTRA_OPTIONS}
 }
 
 function Make() {
+  _meson_fixenv
   meson compile -C "${MESON_BUILDDIR}"
 }
 
@@ -32,6 +51,7 @@ function UnitTest() {
 }
 
 function MakeInstall() {
+  _meson_fixenv
   meson install -C "${MESON_BUILDDIR}"
 }
 

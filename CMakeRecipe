@@ -15,6 +15,20 @@
 #   }
 
 function Prepare() {
+  # CMake 3.27+ (policy CMP0144) no longer uses uppercase *_ROOT environment
+  # variables for find_package().  Build CMAKE_PREFIX_PATH from every *_ROOT
+  # variable bits has set so that cmake config files are found regardless of
+  # which variable name convention a project uses.  Setting this as an env var
+  # (not a -D flag) makes it transparent to all custom Configure() overrides.
+  local _pfx="" _root_var _root_val
+  for _root_var in $(env | grep -E '^[A-Za-z][A-Za-z0-9_]*_ROOT=' | cut -d= -f1 | sort -u); do
+    _root_val="${!_root_var}"
+    [ -n "${_root_val}" ] && [ -d "${_root_val}" ] || continue
+    _pfx="${_pfx:+${_pfx};}${_root_val}"
+  done
+  [ -n "${_pfx}" ] && export CMAKE_PREFIX_PATH="${_pfx}${CMAKE_PREFIX_PATH:+;${CMAKE_PREFIX_PATH}}"
+  unset _pfx _root_var _root_val
+
   rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
 }
 
