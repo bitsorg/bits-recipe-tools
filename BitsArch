@@ -22,6 +22,7 @@
 #       The GCC target triple, e.g. "x86_64-linux-gnu", via `gcc -dumpmachine`,
 #       falling back to "x86_64-linux-gnu" when gcc is unavailable.  Used to
 #       locate the host's multiarch pkgconfig/include directories.
+#
 
 function bits_arch_select() {
   local _m
