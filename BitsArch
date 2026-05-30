@@ -1,0 +1,42 @@
+# BitsArch — shared architecture-detection helpers for bits recipes
+#
+# Source it after the base recipe include when a recipe needs to pick an
+# arch-specific download URL or compiler triple:
+#
+#   . $(bits-include BinaryRecipe)
+#   . $(bits-include BitsArch)
+#   function Prepare() { local a; a=$(bits_goarch) ; ... }
+#
+# Every function writes its result to stdout and returns non-zero (with a
+# message on stderr) for an unsupported CPU, so callers can `$(...)` capture
+# them and let `set -e` abort the build on an unknown architecture.
+#
+# Provided functions:
+#   bits_arch_select <x86_64-value> <aarch64-value>
+#       Echo the first argument on x86_64/amd64 hosts, the second on
+#       aarch64/arm64 hosts.  The building block for the named helpers below.
+#   bits_goarch
+#       Go / container-style CPU tag: "amd64" or "arm64".
+#       (Go, pyroscope, and most prebuilt-binary tarballs use this spelling.)
+#   bits_triple
+#       The GCC target triple, e.g. "x86_64-linux-gnu", via `gcc -dumpmachine`,
+#       falling back to "x86_64-linux-gnu" when gcc is unavailable.  Used to
+#       locate the host's multiarch pkgconfig/include directories.
+
+function bits_arch_select() {
+  local _m
+  _m=$(uname -m)
+  case "${_m}" in
+    x86_64|amd64)  printf '%s\n' "$1" ;;
+    aarch64|arm64) printf '%s\n' "$2" ;;
+    *) echo "bits_arch_select: unsupported architecture: ${_m}" >&2; return 1 ;;
+  esac
+}
+
+function bits_goarch() {
+  bits_arch_select amd64 arm64
+}
+
+function bits_triple() {
+  gcc -dumpmachine 2>/dev/null || echo "x86_64-linux-gnu"
+}

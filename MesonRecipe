@@ -9,6 +9,7 @@
 #   function Configure() {
 #     meson setup "${MESON_BUILDDIR}" \
 #       --prefix="$INSTALLROOT" \
+#       --libdir=lib \
 #       -Dfoo=enabled \
 #       ${MESON_EXTRA_OPTIONS}
 #   }
@@ -38,7 +39,10 @@ function Prepare() {
 
 function Configure() {
   _meson_fixenv
-  meson setup "${MESON_BUILDDIR}" --prefix="$INSTALLROOT" ${MESON_EXTRA_OPTIONS}
+  # --libdir=lib ensures libraries and pkgconfig files land in $prefix/lib/
+  # rather than a multiarch path (e.g. lib/x86_64-linux-gnu on Ubuntu), which
+  # keeps all *_ROOT/lib/pkgconfig assumptions consistent.
+  meson setup "${MESON_BUILDDIR}" --prefix="$INSTALLROOT" --libdir=lib ${MESON_EXTRA_OPTIONS}
 }
 
 function Make() {
