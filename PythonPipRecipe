@@ -19,6 +19,21 @@
 
 . ${BITS_RECIPE_TOOLS_ROOT}/PythonRecipe
 
+# If pip cannot find a matching binary wheel it falls back to building the
+# package from source in an isolated build.  Such builds (ninja for torch-style
+# C++/CUDA extensions, CMake for scikit-build packages, plain setuptools/make
+# for the rest) otherwise spawn one compile process per core, ignoring $JOBS —
+# multiplied again by every concurrent --builders slot.  Bound them to $JOBS,
+# which bits has already divided across the active builders (see
+# bits_helpers/memory.effective_jobs).  These exports are harmless no-ops when
+# pip installs a prebuilt wheel, and apply to recipes that override MakeInstall
+# (e.g. torch) because they are set at recipe-source time, before any step runs.
+if [ -n "${JOBS}" ]; then
+  export MAX_JOBS="${JOBS}"                                 # ninja-based extensions (torch, …)
+  export CMAKE_BUILD_PARALLEL_LEVEL="${JOBS}"               # scikit-build / CMake extensions
+  export MAKEFLAGS="${MAKEFLAGS:+${MAKEFLAGS} }-j${JOBS}"   # setuptools/distutils + make
+fi
+
 # No source tarball: skip the rsync Prepare step
 function Prepare() { true; }
 
