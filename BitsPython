@@ -1,0 +1,67 @@
+# BitsPython — shared build-time Python helpers (bits-recipe-tools)
+#
+# Source after the base recipe include:
+#   . $(bits-include BitsPython)
+#
+# Provides:
+#   bits_pythonpath_from_deps   add every dependency's site-packages to PYTHONPATH
+#   bits_enable_cython          put the bits-built Cython on PATH + PYTHONPATH
+#
+# Background: bits' build environment exports each dependency's $*_ROOT but, unlike
+# the runtime modulefile, does NOT add its lib/pythonX.Y/site-packages to PYTHONPATH.
+# Any build-time Python step that imports a dependency module (code generators,
+# configure probes, Cython) therefore fails with ModuleNotFoundError unless the
+# recipe puts those paths on PYTHONPATH itself.  These helpers factor out that
+# boilerplate, which was previously copy-pasted across several recipes.
+
+# Resolve the Python X.Y version of the stack's interpreter.  Prefers the
+# dependency Python (PYTHON_ROOT / mixed-case Python_ROOT that bits' init.sh
+# exports) over whatever python3 happens to be on PATH.  Echoes e.g. "3.13".
+function _bits_py_xy() {
+  "${PYTHON_ROOT:-${Python_ROOT:-/usr}}/bin/python3" \
+    -c 'import sys; print("%d.%d" % sys.version_info[:2])' 2>/dev/null || echo 3
+}
+
+# bits_pythonpath_from_deps — add each dependency's site-packages to PYTHONPATH.
+#
+# Scans every *_ROOT in the environment (bits sets one per dependency; the regex
+# accepts both the mixed-case names from init.sh and the uppercase names from
+# new-style modulefiles) and prepends its lib/pythonX.Y/site-packages when that
+# directory exists.  Safe to call from SetBuildEnv() or at recipe scope.
+#
+# IMPORTANT: this function ends with `return 0` on purpose.  The scan loop's last
+# statement is `[ -d "$sp" ] && export ...`, whose status is non-zero whenever the
+# final dependency scanned has no site-packages directory.  CMakeRecipe.Run()
+# calls SetBuildEnv as a standalone command under `set -e`, so a non-zero return
+# would abort the build SILENTLY before Configure.  Always return success.
+function bits_pythonpath_from_deps() {
+  local _pyver _r _sp
+  _pyver=$(_bits_py_xy)
+  for _r in $(env | grep -E '^[A-Za-z][A-Za-z0-9_]*_ROOT=' | cut -d= -f1 | sort -u); do
+    _sp="${!_r}/lib/python${_pyver}/site-packages"
+    [ -d "${_sp}" ] && export PYTHONPATH="${_sp}${PYTHONPATH:+:${PYTHONPATH}}"
+  done
+  return 0
+}
+
+# bits_enable_cython — make the bits-built Cython importable and runnable.
+#
+# Puts $CYTHON_ROOT/bin on PATH and its site-packages on PYTHONPATH so that an
+# Autotools configure can detect "Cython >= X" and `make` can re-run the `cython`
+# launcher to regenerate stale .pyx-derived C/C++ (the shipped *.cpp in many HEP
+# tarballs were produced by an old Cython and use CPython internals removed in
+# 3.12/3.13).  No-op when CYTHON_ROOT is unset.
+#
+# Call at RECIPE SCOPE when regeneration happens at `make` time and the recipe's
+# Configure() runs its body in a subshell ( ... ) — a subshell-local export would
+# not reach the separate Make step.  Calling it inside a non-subshell Configure()
+# is also fine.  The recipe still removes its own stale generated files (the
+# filenames are package-specific).
+function bits_enable_cython() {
+  [ -n "${CYTHON_ROOT}" ] || return 0
+  local _pyver
+  _pyver=$(_bits_py_xy)
+  export PATH="${CYTHON_ROOT}/bin:${PATH}"
+  export PYTHONPATH="${CYTHON_ROOT}/lib/python${_pyver}/site-packages${PYTHONPATH:+:${PYTHONPATH}}"
+  return 0
+}

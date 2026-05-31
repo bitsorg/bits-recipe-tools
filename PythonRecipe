@@ -23,17 +23,10 @@ PYTHON_MAJOR_MINOR=$(${PYTHON_EXE} -c 'import sys; print("%d.%d" % sys.version_i
 SITE_PACKAGES="${INSTALLROOT}/lib/python${PYTHON_MAJOR_MINOR}/site-packages"
 
 # Build PYTHONPATH from every dependency that installed Python modules.
-# bits sets *_ROOT for each dep via init.sh sourcing; we add any whose
-# lib/pythonX.Y/site-packages directory actually exists.
-# The regex accepts both mixed-case names from bits init.sh (e.g. meson_python_ROOT,
-# Python_ROOT) and uppercase names from new-style module files (MESON_PYTHON_ROOT).
-for _root_var in $(env | grep -E '^[A-Za-z][A-Za-z0-9_]*_ROOT=' | cut -d= -f1 | sort -u); do
-  _root_val="${!_root_var}"
-  _sp="${_root_val}/lib/python${PYTHON_MAJOR_MINOR}/site-packages"
-  [ -d "${_sp}" ] || continue
-  export PYTHONPATH="${_sp}${PYTHONPATH:+:${PYTHONPATH}}"
-done
-unset _root_var _root_val _sp
+# bits sets *_ROOT for each dep via init.sh sourcing; bits_pythonpath_from_deps
+# (shared helper) adds any whose lib/pythonX.Y/site-packages directory exists.
+. ${BITS_RECIPE_TOOLS_ROOT}/BitsPython
+bits_pythonpath_from_deps
 
 function Prepare() {
   rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
