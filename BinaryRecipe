@@ -7,8 +7,21 @@
 # Override MakeInstall() if the tarball layout differs from the target layout.
 # Override PostInstall() for any post-unpack fixups (e.g. chmod, rpath patching).
 
+# Artifacts bits injects into $SOURCEDIR that must never reach the build copy or
+# the install tree: the downloaded source archive(s) (left in place after
+# extraction so download() can skip re-fetching them), the extraction/patch
+# sentinels, and any in-progress download marker.  Archive patterns are
+# root-anchored ('/...') so only the top-level downloaded tarball is dropped,
+# never an archive that is a legitimate part of the package payload.
+_BITS_SRC_EXCLUDES=(
+  --exclude '.bits_extracted' --exclude '.bits_patched' --exclude '*.downloading'
+  --exclude '/*.tar'     --exclude '/*.tar.gz'  --exclude '/*.tgz'
+  --exclude '/*.tar.bz2' --exclude '/*.tbz2'    --exclude '/*.tar.xz' --exclude '/*.txz'
+  --exclude '/*.tar.zst' --exclude '/*.zip'
+)
+
 function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
+  rsync -av --delete --exclude '**/.git' "${_BITS_SRC_EXCLUDES[@]}" --delete-excluded "$SOURCEDIR"/ ./
 }
 
 function Configure() { true; }
@@ -18,7 +31,7 @@ function UnitTest() { true; }
 
 function MakeInstall() {
   mkdir -p "${INSTALLROOT}"
-  rsync -av --delete --exclude '**/.git' --delete-excluded ./ "${INSTALLROOT}"/
+  rsync -av --delete --exclude '**/.git' "${_BITS_SRC_EXCLUDES[@]}" --delete-excluded ./ "${INSTALLROOT}"/
 }
 
 function PostInstall() { true; }
