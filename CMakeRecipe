@@ -46,15 +46,15 @@ function SetBuildEnv() {
 }
 
 function Prepare() {
-  # CMake builds here are out-of-source: Configure() runs `cmake "$SOURCEDIR"`
-  # with the build/ dir (cwd) as the binary directory. Do NOT copy the source
-  # tree into build/. Doing so leaves stale source headers under build/<sub>/,
-  # and for packages whose own CMake build adds a binary subdir to the include
-  # path (CMake itself: build/Source) those duplicate copies collide with the
-  # real source headers — `#pragma once` keys on file identity, sees two files,
-  # and fails with "redefinition" errors. The Build-only path already runs
-  # Configure without any Prepare, proving the copy is unnecessary.
-  true
+  # Copy the source into the build dir (cwd). Most CMake recipes build
+  # out-of-source via `cmake "$SOURCEDIR"` and do not need this, but several
+  # recipes override Make/Build to run an in-source tool from cwd (Boost's
+  # ./bootstrap.sh + ./b2, apfel/geneva/syscalc/… autotools, etc.) and rely on
+  # the source being present here. Recipes that build a package whose own CMake
+  # build puts a binary subdir on the include path (CMake itself: build/Source)
+  # must override Prepare to a no-op so the copied source headers do not collide
+  # with the real ones (see lcg.bits/cmake.sh).
+  rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
 }
 
 function Configure() {
