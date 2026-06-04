@@ -46,7 +46,15 @@ function SetBuildEnv() {
 }
 
 function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
+  # CMake builds here are out-of-source: Configure() runs `cmake "$SOURCEDIR"`
+  # with the build/ dir (cwd) as the binary directory. Do NOT copy the source
+  # tree into build/. Doing so leaves stale source headers under build/<sub>/,
+  # and for packages whose own CMake build adds a binary subdir to the include
+  # path (CMake itself: build/Source) those duplicate copies collide with the
+  # real source headers — `#pragma once` keys on file identity, sees two files,
+  # and fails with "redefinition" errors. The Build-only path already runs
+  # Configure without any Prepare, proving the copy is unnecessary.
+  true
 }
 
 function Configure() {
