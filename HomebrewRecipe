@@ -80,6 +80,24 @@ function Build() {
   for name in ${HOMEBREW_LINK_DIRS}; do
     [ -e "${prefix}/${name}" ] && ln -snf "${prefix}/${name}" "$INSTALLROOT/${name}"
   done
+  # Optional bin aliases: many GNU command-line tools install under a g-prefixed
+  # name on macOS (gtar, gsed, gmake, ...) so they don't shadow the BSD tools,
+  # whereas the Linux package provides the bare name. HOMEBREW_BIN_ALIASES is a
+  # space-separated list of alias=realbin pairs (e.g. "tar=gtar") that makes the
+  # bare name available too. When set, bin/ is materialised as a real directory
+  # of per-binary symlinks (instead of a single dir symlink) so the aliases fit
+  # alongside the real binaries. Relocation skips symlinks, so this stays safe.
+  if [ -n "${HOMEBREW_BIN_ALIASES:-}" ] && [ -d "${prefix}/bin" ]; then
+    rm -f "$INSTALLROOT/bin"
+    mkdir -p "$INSTALLROOT/bin"
+    for _b in "${prefix}"/bin/*; do
+      [ -e "$_b" ] && ln -snf "$_b" "$INSTALLROOT/bin/$(basename "$_b")"
+    done
+    for _pair in ${HOMEBREW_BIN_ALIASES}; do
+      _alias=${_pair%%=*}; _target=${_pair#*=}
+      [ -e "${prefix}/bin/${_target}" ] && ln -snf "${prefix}/bin/${_target}" "$INSTALLROOT/bin/${_alias}"
+    done
+  fi
   # Provenance: record exactly what this shim points at.
   {
     echo "homebrew_formula=${HOMEBREW_FORMULA}"
