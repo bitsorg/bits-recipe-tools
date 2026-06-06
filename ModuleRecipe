@@ -83,13 +83,20 @@ if [ X$HAS_BIN = Xtrue ]; then
   printf "prepend-path PATH \$PKG_ROOT/bin\n"
 fi
 if [ X$HAS_LIB = Xtrue ]; then
-  printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib\n"
-  printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib64\n"
-  # Mirror onto DYLD_LIBRARY_PATH so the dynamic loader finds dependency dylibs
-  # on macOS (it ignores LD_LIBRARY_PATH). Inert on Linux. Keeps the runtime
-  # modulefile in step with the build-time init.sh (see bits build.py).
-  printf "prepend-path DYLD_LIBRARY_PATH \$PKG_ROOT/lib\n"
-  printf "prepend-path DYLD_LIBRARY_PATH \$PKG_ROOT/lib64\n"
+  # macOS dyld uses DYLD_LIBRARY_PATH and ignores LD_LIBRARY_PATH; Linux is the
+  # reverse. Emit only the relevant one for this package's target platform
+  # (modulefiles are per-architecture). Mirrors the build-time init.sh in bits
+  # build.py. ARCHITECTURE is set in the build env; fall back to uname.
+  case "${ARCHITECTURE:-$(uname)}" in
+    osx*|Darwin)
+      printf "prepend-path DYLD_LIBRARY_PATH \$PKG_ROOT/lib\n"
+      printf "prepend-path DYLD_LIBRARY_PATH \$PKG_ROOT/lib64\n"
+      ;;
+    *)
+      printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib\n"
+      printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib64\n"
+      ;;
+  esac
 fi
 PKGNAME_UPPER=$(echo "${PKGNAME}" | tr '[:lower:]-' '[:upper:]_')
 if [ X$HAS_INC = Xtrue ]; then
