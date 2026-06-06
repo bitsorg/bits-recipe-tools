@@ -1,0 +1,100 @@
+# HomebrewRecipe — expose a macOS Homebrew formula as a bits package
+# (bits-recipe-tools).
+#
+# macOS is a developer platform here (bits does not build/distribute CVMFS
+# packages for it), so for system libraries it is better to reuse the
+# maintained, consistent Homebrew build than to fight the BSD userland. This
+# helper turns an installed Homebrew formula into a normal-looking bits package:
+# the formula's prefix tree is symlinked into $INSTALLROOT so that <PKG>_ROOT and
+# the standard bin/lib/include/lib-pkgconfig dep-env paths resolve to Homebrew,
+# and downstream packages then find headers/libs/binaries transparently (the
+# same machinery used for built packages: PKG_CONFIG_PATH, CMAKE_PREFIX_PATH and
+# DYLD_LIBRARY_PATH derived from *_ROOT).
+#
+# Use it from a prefer_system replacement spec gated to osx.* — see
+# lcg.bits/readline.sh:
+#
+#   prefer_system: "osx.*"
+#   prefer_system_check: |          # runs unsandboxed; honours `bits --brew`
+#     ... locate (or `brew install` when BITS_BREW=1) the formula ...
+#     echo "bits_system_replace: readline"
+#   prefer_system_replacement_specs:
+#     readline:
+#       version: "homebrew"
+#       build_requires: [ bits-recipe-tools ]
+#       recipe: |
+#         MODULE_OPTIONS="--lib --inc --pkgconfig"
+#         HOMEBREW_FORMULA=readline
+#         . $(bits-include HomebrewRecipe)
+#
+# Knobs (set before sourcing):
+#   HOMEBREW_FORMULA       Homebrew formula name (default: lowercased $PKGNAME).
+#   HOMEBREW_LINK_DIRS     prefix subdirs to symlink (default: the list below).
+#                          'etc' is intentionally excluded: bits owns
+#                          $INSTALLROOT/etc/modulefiles.
+#   MODULE_OPTIONS         passed to ModuleRecipe (e.g. "--lib --inc --pkgconfig").
+#
+# This helper does NOT run `brew install`. The build phase is sandboxed on macOS
+# (network denied, writes confined to the build dir), so `brew install` cannot
+# run here. Triggering the install is the job of the recipe's prefer_system_check,
+# which runs unsandboxed during dependency resolution and honours `bits --brew`
+# (exported as BITS_BREW=1). By the time Build runs, the formula is expected to be
+# present; this helper just exposes it (and fails clearly if it is not).
+#
+# Notes:
+#   * Directory symlinks are skipped by bits' macOS relocation (find -type f and
+#     the default -P) so Homebrew's own dylibs are never modified.
+#   * The sandbox allows reads everywhere ((allow file-read*)), so symlinking the
+#     Homebrew prefix and resolving it works inside the build.
+#   * The symlinks are absolute Homebrew paths — fine on a developer Mac, and
+#     never deployed off it. Pin the formula version via a stack tap + Brewfile
+#     for reproducibility; assert it in prefer_system_check if desired.
+
+if [ -z "${HOMEBREW_FORMULA:-}" ]; then
+  HOMEBREW_FORMULA=$(echo "$PKGNAME" | tr '[:upper:]' '[:lower:]')
+fi
+: "${HOMEBREW_LINK_DIRS:=bin sbin lib lib64 libexec include share}"
+
+function HomebrewPrefix() {
+  local p
+  p=$(brew --prefix "${HOMEBREW_FORMULA}" 2>/dev/null) || p=""
+  if [ -n "$p" ] && [ -d "$p" ]; then printf '%s\n' "$p"; return 0; fi
+  for p in "/opt/homebrew/opt/${HOMEBREW_FORMULA}" "/usr/local/opt/${HOMEBREW_FORMULA}"; do
+    [ -d "$p" ] && { printf '%s\n' "$p"; return 0; }
+  done
+  return 1
+}
+
+function Build() {
+  local prefix name
+  prefix=$(HomebrewPrefix) || {
+    echo "HomebrewRecipe: Homebrew formula '${HOMEBREW_FORMULA}' is not installed." >&2
+    echo "HomebrewRecipe:   brew install ${HOMEBREW_FORMULA}" >&2
+    echo "HomebrewRecipe: or re-run bits with --brew to install it automatically." >&2
+    return 1
+  }
+  echo "HomebrewRecipe: exposing ${HOMEBREW_FORMULA} from ${prefix}"
+  mkdir -p "$INSTALLROOT"
+  # Symlink each present top-level subdir of the formula prefix into INSTALLROOT
+  # so $PKG_ROOT/{bin,lib,include,lib/pkgconfig,...} resolve to Homebrew.
+  for name in ${HOMEBREW_LINK_DIRS}; do
+    [ -e "${prefix}/${name}" ] && ln -snf "${prefix}/${name}" "$INSTALLROOT/${name}"
+  done
+  # Provenance: record exactly what this shim points at.
+  {
+    echo "homebrew_formula=${HOMEBREW_FORMULA}"
+    echo "homebrew_prefix=${prefix}"
+    brew list --versions "${HOMEBREW_FORMULA}" 2>/dev/null
+  } > "$INSTALLROOT/.homebrew" || true
+}
+
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
+
+function Run() {
+  local rc=0
+  case $1 in
+    Prepare) true ;;                 # nothing to fetch/prepare
+    *)       Build && MakeModule ;;  # symlink the Homebrew tree + emit modulefile
+  esac || rc=$?
+  return $rc
+}
