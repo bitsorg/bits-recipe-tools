@@ -1,0 +1,72 @@
+# BitsPatch — readable in-place source patching for bits recipes
+# (bits-recipe-tools).
+#
+# Source after the base recipe include:
+#   . $(bits-include BitsPatch)
+#
+# These wrap `perl -i` so a recipe expresses INTENT instead of regex noise.
+# Every function edits the file(s) in place, logs one "BitsPatch:" line with the
+# number of changes, and returns 0 even on no match — so re-applying them on a
+# resumed build is safe under `set -e`. Values are passed to perl through the
+# environment, so shell quoting never leaks into the pattern and metacharacters
+# in OLD/TOKEN are matched literally.
+#
+#   bits_file_replace      FILE OLD NEW     literal substring OLD -> NEW
+#   bits_strip_token       FILE... TOKEN    drop a whitespace-delimited flag/lib
+#   bits_file_insert_after FILE RE LINE     add LINE after each line matching RE
+#                                           (idempotent: skipped if LINE present)
+#   bits_file_sub          FILE RE REPL     raw-regex escape hatch (REPL is a
+#                                           literal string; no $1 backrefs)
+
+# bits_file_replace FILE OLD NEW — replace every literal occurrence of OLD.
+function bits_file_replace() {
+  local _f="$1" _old="$2" _new="$3" _n
+  _n=$(BITS_OLD="$_old" BITS_NEW="$_new" perl -i -pe \
+        'BEGIN{$c=0} $c+=s/\Q$ENV{BITS_OLD}\E/$ENV{BITS_NEW}/g; END{print STDERR $c}' \
+        "$_f" 2>&1 >/dev/null)
+  echo "BitsPatch: $_f: replaced '${_old}' (${_n:-0}x)"
+  return 0
+}
+
+# bits_strip_token FILE... TOKEN — remove a whitespace-delimited token (a
+# compiler flag or library name) wherever it stands as its own word. Bounded by
+# whitespace / line ends, so it never hits a substring (stripping "stdc++fs"
+# leaves "libstdc++fs" alone) and collapses cleanly to a single separator.
+function bits_strip_token() {
+  local _tok="${!#}" _f _n
+  for _f in "${@:1:$#-1}"; do
+    _n=$(BITS_TOK="$_tok" perl -i -pe \
+          'BEGIN{$c=0} $c+=s/(?:^|\s)\Q$ENV{BITS_TOK}\E(?=\s|$)//g; END{print STDERR $c}' \
+          "$_f" 2>&1 >/dev/null)
+    echo "BitsPatch: $_f: stripped token '${_tok}' (${_n:-0}x)"
+  done
+  return 0
+}
+
+# bits_file_insert_after FILE RE LINE — append LINE (a literal line) after every
+# line matching the perl regex RE. Idempotent: does nothing if LINE is already
+# present, so it survives resumed builds without duplicating.
+function bits_file_insert_after() {
+  local _f="$1" _re="$2" _line="$3" _n
+  if grep -qF -- "$_line" "$_f" 2>/dev/null; then
+    echo "BitsPatch: $_f: insert skipped (already present)"
+    return 0
+  fi
+  _n=$(BITS_RE="$_re" BITS_LINE="$_line" perl -i -pe \
+        'BEGIN{$c=0} if(/$ENV{BITS_RE}/){ $_ .= "$ENV{BITS_LINE}\n"; $c++ } END{print STDERR $c}' \
+        "$_f" 2>&1 >/dev/null)
+  echo "BitsPatch: $_f: inserted after /${_re}/ (${_n:-0}x)"
+  return 0
+}
+
+# bits_file_sub FILE RE REPL — escape hatch for genuine regular expressions.
+# RE is a perl regex; REPL is substituted literally (capture-group backrefs are
+# NOT expanded — use bits_file_insert_after, or a dedicated helper, for those).
+function bits_file_sub() {
+  local _f="$1" _re="$2" _rp="$3" _n
+  _n=$(BITS_RE="$_re" BITS_RP="$_rp" perl -i -pe \
+        'BEGIN{$c=0} $c+=s/$ENV{BITS_RE}/$ENV{BITS_RP}/g; END{print STDERR $c}' \
+        "$_f" 2>&1 >/dev/null)
+  echo "BitsPatch: $_f: regex sub (${_n:-0}x)"
+  return 0
+}

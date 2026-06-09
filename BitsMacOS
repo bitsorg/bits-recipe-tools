@@ -1,0 +1,68 @@
+# BitsMacOS — shared macOS (Darwin) build helpers for bits recipes
+# (bits-recipe-tools).
+#
+# Source after the base recipe include:
+#   . $(bits-include BitsMacOS)
+#
+# macOS is a developer platform here; these helpers factor out the handful of
+# Apple-toolchain workarounds that otherwise get copy-pasted across recipes.
+# Every helper is a no-op (or echoes nothing) off Darwin, so a recipe can call
+# them unconditionally and the Linux build is unaffected.
+#
+#   bits_is_macos                      true on Darwin — the readable gate
+#   bits_macos_relocatable_ldflags     echo -Wl,-headerpad_max_install_names
+#   bits_macos_undefined_ldflags       echo dynamic_lookup + headerpad flags
+#   bits_patch_libtool_undefined       let generated libtool emit dylibs with
+#                                      undefined symbols (Make-time)
+#   bits_swig_lib                      correct SWIG_LIB (relocated on Darwin)
+
+. ${BITS_RECIPE_TOOLS_ROOT}/BitsPatch
+
+# bits_is_macos — succeed on Darwin. Use as `bits_is_macos && ...` or as an if.
+function bits_is_macos() {
+  [ "$(uname)" = Darwin ]
+}
+
+# bits_macos_relocatable_ldflags — Mach-O header pad so bits' post-build
+# install_name_tool relocation can rewrite the (long) final install path.
+# Empty off Darwin. Use: cmake ... ${_lf:+-DCMAKE_SHARED_LINKER_FLAGS="$_lf"}
+# or  export LDFLAGS="$(bits_macos_relocatable_ldflags) ${LDFLAGS:-}".
+function bits_macos_relocatable_ldflags() {
+  bits_is_macos && printf '%s' '-Wl,-headerpad_max_install_names'
+  return 0
+}
+
+# bits_macos_undefined_ldflags — allow a shared lib to keep undefined symbols
+# (resolved at load time, as Linux's flat namespace does) plus the header pad.
+# Empty off Darwin.
+function bits_macos_undefined_ldflags() {
+  bits_is_macos && printf '%s' '-Wl,-undefined,dynamic_lookup -Wl,-headerpad_max_install_names'
+  return 0
+}
+
+# bits_patch_libtool_undefined — patch every generated libtool under the build
+# tree so dylib links carry -undefined dynamic_lookup. The bundled libtool leaves
+# allow_undefined_flag="" because its MACOSX_DEPLOYMENT_TARGET case stops at 10.*.
+# Call from Make() (the generated libtool is not re-created on a resumed build).
+function bits_patch_libtool_undefined() {
+  bits_is_macos || return 0
+  local _lt
+  find . -name libtool -type f | while read -r _lt; do
+    bits_file_sub "$_lt" '^allow_undefined_flag=""[ \t]*$' \
+      'allow_undefined_flag="-undefined dynamic_lookup"'
+  done
+}
+
+# bits_swig_lib — echo the SWIG runtime library directory. On Darwin `swig
+# -swiglib` reports swig's gone build-time INSTALLROOT path, so use the relocated
+# tree under SWIG_ROOT; on Linux keep the working `swig -swiglib`.
+# Use: export SWIG_LIB="$(bits_swig_lib)".
+function bits_swig_lib() {
+  if bits_is_macos; then
+    local _d
+    _d=$(ls -d "${SWIG_ROOT}"/share/swig/*/ 2>/dev/null | head -1)
+    printf '%s\n' "${_d%/}"
+  else
+    "${SWIG_ROOT}/bin/swig" -swiglib 2>/dev/null
+  fi
+}
