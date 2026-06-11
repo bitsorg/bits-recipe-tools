@@ -3,6 +3,18 @@ MODULEFILE=$MODULEDIR/$PKGNAME
 
 MODULE_OPTIONS="--bin --lib"
 
+# Emit `prepend-path VAR $PKG_ROOT/SUB` wrapped in a load-time existence guard, so
+# the entry is added only when the directory really exists in the deployed tree.
+# This keeps PATH / LD_LIBRARY_PATH / PKG_CONFIG_PATH / PYTHONPATH /
+# ROOT_INCLUDE_PATH from being padded with non-existent lib / lib64 / site-packages
+# directories — shorter variables and fewer dirs for the dynamic loader to stat.
+# Mirrors the `[ -d ]` guards bits already uses in the build-time init.sh. The
+# single-quoted format keeps $PKG_ROOT, the brackets and the braces literal in the
+# generated Tcl; %s are substituted by printf.
+function emit_guarded_prepend() {  # $1 = path variable, $2 = subdir under $PKG_ROOT
+  printf 'if {[file isdirectory $PKG_ROOT/%s]} { prepend-path %s $PKG_ROOT/%s }\n' "$2" "$1" "$2"
+}
+
 function GenerateModule() {
 # --bin       prepends $PKG_ROOT/bin to PATH, sets ${PKGNAME}_ROOT
 # --lib       prepends $PKG_ROOT/lib and $PKG_ROOT/lib64 to LD_LIBRARY_PATH,
@@ -80,21 +92,22 @@ done
 printf "\n\nset PKG_ROOT \$::env(BASEDIR)/$PKGNAME/\$version\n"
 
 if [ X$HAS_BIN = Xtrue ]; then
-  printf "prepend-path PATH \$PKG_ROOT/bin\n"
+  emit_guarded_prepend PATH bin
 fi
 if [ X$HAS_LIB = Xtrue ]; then
   # macOS dyld uses DYLD_LIBRARY_PATH and ignores LD_LIBRARY_PATH; Linux is the
   # reverse. Emit only the relevant one for this package's target platform
   # (modulefiles are per-architecture). Mirrors the build-time init.sh in bits
-  # build.py. ARCHITECTURE is set in the build env; fall back to uname.
+  # build.py. ARCHITECTURE is set in the build env; fall back to uname. lib /
+  # lib64 are guarded so only the directory the package actually ships appears.
   case "${ARCHITECTURE:-$(uname)}" in
     osx*|Darwin)
-      printf "prepend-path DYLD_LIBRARY_PATH \$PKG_ROOT/lib\n"
-      printf "prepend-path DYLD_LIBRARY_PATH \$PKG_ROOT/lib64\n"
+      emit_guarded_prepend DYLD_LIBRARY_PATH lib
+      emit_guarded_prepend DYLD_LIBRARY_PATH lib64
       ;;
     *)
-      printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib\n"
-      printf "prepend-path LD_LIBRARY_PATH \$PKG_ROOT/lib64\n"
+      emit_guarded_prepend LD_LIBRARY_PATH lib
+      emit_guarded_prepend LD_LIBRARY_PATH lib64
       ;;
   esac
 fi
@@ -109,20 +122,20 @@ if [ X$HAS_ROOT = Xtrue ]; then
   printf "setenv ${PKGNAME_UPPER}_ROOT \$PKG_ROOT\n"
 fi
 if [ X$HAS_PYTHON = Xtrue ] && [ -n "${PYTHON_MAJOR_MINOR:-}" ]; then
-  printf "prepend-path PYTHONPATH \$PKG_ROOT/lib/python${PYTHON_MAJOR_MINOR}/site-packages\n"
+  emit_guarded_prepend PYTHONPATH "lib/python${PYTHON_MAJOR_MINOR}/site-packages"
 fi
 if [ X$HAS_ROOT_INC = Xtrue ]; then
-  printf "prepend-path ROOT_INCLUDE_PATH \$PKG_ROOT/include\n"
+  emit_guarded_prepend ROOT_INCLUDE_PATH include
 fi
 if [ X$HAS_PYLIB = Xtrue ]; then
-  printf "prepend-path PYTHONPATH \$PKG_ROOT/lib\n"
+  emit_guarded_prepend PYTHONPATH lib
 fi
 if [ X$HAS_PYSITE = Xtrue ]; then
-  printf "prepend-path PYTHONPATH \$PKG_ROOT/lib/python/site-packages\n"
+  emit_guarded_prepend PYTHONPATH lib/python/site-packages
 fi
 if [ X$HAS_PKGCONFIG = Xtrue ]; then
-  printf "prepend-path PKG_CONFIG_PATH \$PKG_ROOT/lib/pkgconfig\n"
-  printf "prepend-path PKG_CONFIG_PATH \$PKG_ROOT/lib64/pkgconfig\n"
+  emit_guarded_prepend PKG_CONFIG_PATH lib/pkgconfig
+  emit_guarded_prepend PKG_CONFIG_PATH lib64/pkgconfig
 fi
 echo
 }
