@@ -31,6 +31,11 @@
 # files for all dependencies.  Called unconditionally from Run() before any
 # build step so it is active for both Prepare+Configure and Build-only paths.
 function _SetBuildEnvBase() {
+  # Under --initdotsh-from-modules (the default), each dependency's init.sh has
+  # already put its install root on CMAKE_PREFIX_PATH (':'-separated, which
+  # find_package reads natively). Don't reconstruct it here — doing so would
+  # overwrite that with a ';'-separated list and lose the env-var entries.
+  [ -n "${BITS_INITDOTSH_FROM_MODULES}" ] && return 0
   local _pfx="" _root_var _root_val
   for _root_var in $(env | grep -E '^[A-Za-z][A-Za-z0-9_]*_ROOT=' | cut -d= -f1 | sort -u); do
     _root_val="${!_root_var}"

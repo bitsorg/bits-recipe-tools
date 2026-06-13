@@ -35,6 +35,9 @@ function _bits_py_xy() {
 # calls SetBuildEnv as a standalone command under `set -e`, so a non-zero return
 # would abort the build SILENTLY before Configure.  Always return success.
 function bits_pythonpath_from_deps() {
+  # Under --initdotsh-from-modules (the default) each dependency's init.sh already
+  # puts its lib/pythonX.Y/site-packages on PYTHONPATH, so this scan is redundant.
+  [ -n "${BITS_INITDOTSH_FROM_MODULES}" ] && return 0
   local _pyver _r _sp
   _pyver=$(_bits_py_xy)
   for _r in $(env | grep -E '^[A-Za-z][A-Za-z0-9_]*_ROOT=' | cut -d= -f1 | sort -u); do
@@ -58,6 +61,9 @@ function bits_pythonpath_from_deps() {
 # is also fine.  The recipe still removes its own stale generated files (the
 # filenames are package-specific).
 function bits_enable_cython() {
+  # Under --initdotsh-from-modules (the default) the Cython dependency's init.sh
+  # already exports its bin on PATH and its site-packages on PYTHONPATH.
+  [ -n "${BITS_INITDOTSH_FROM_MODULES}" ] && return 0
   [ -n "${CYTHON_ROOT}" ] || return 0
   local _pyver
   _pyver=$(_bits_py_xy)
