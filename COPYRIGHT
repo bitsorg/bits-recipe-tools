@@ -1,0 +1,19 @@
+Copyright (C) 2024-2026 CERN (European Organization for Nuclear Research)
+and the bits project contributors.
+
+SPDX-License-Identifier: GPL-3.0-or-later
+
+bits-recipe-tools is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by the
+Free Software Foundation, either version 3 of the License, or (at your
+option) any later version. See the LICENSE file for the full text.
+
+bits-recipe-tools is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+or FITNESS FOR A PARTICULAR PURPOSE.
+
+Note on SPDX headers: the recipe-helper snippets in this repository
+(AutoToolsRecipe, CMakeRecipe, BitsPython, ModuleRecipe, ...) are sourced
+and hashed by bits as part of package content addressing. Per-file SPDX
+headers are intentionally omitted to avoid perturbing those build hashes;
+the repository-level LICENSE and this COPYRIGHT file govern every file.
