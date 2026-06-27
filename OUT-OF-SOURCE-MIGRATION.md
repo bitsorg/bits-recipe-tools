@@ -18,6 +18,31 @@ Do this **without a flag-day**: separate the bulk mechanical recipe edits
 (behavior-preserving) from the single behavior change (the flip), which is then
 isolated, tested, and revertible on its own.
 
+## Implementation status — COMPLETE
+
+All stages are implemented and committed (build dir standardised on `build/`;
+`common.bits`/`alice.bits` out of scope — obsolete/empty, and ALICE uses
+alidist, which does not use bits-recipe-tools).
+
+| Stage | What | Where |
+|-------|------|-------|
+| 1 | `CMakeRecipe` routes `Configure`/`Make`/`MakeInstall` through `BITS_CMAKE_SRC`/`BITS_CMAKE_BUILD` (no-op: `$SOURCEDIR` / `.`) | `bits-recipe-tools/CMakeRecipe` |
+| 2 | 181 lcg recipes: `cmake "$SOURCEDIR"[/sub]` → `-S "$BITS_CMAKE_SRC"[/sub] -B "$BITS_CMAKE_BUILD"`; `--build .`/`--install .` → `"$BITS_CMAKE_BUILD"` (no-op) | `lcg.bits/*.sh` |
+| 3 | The flip: drop `pushd build`, set `SRC="."`/`BUILD="build"`, `Prepare` excludes `/build/`; align Davix/xrootd | `CMakeRecipe`, `lcg.bits/{davix,xrootd}.sh` |
+| 4 | Fix the 5 recipes that mutated SOURCES in place → write the copy | `lcg.bits/{root,gmp,k4geo,nlox,compilebox}.sh` |
+| 5 | Read-only SOURCES tripwire **on by default** in docker (escape hatch `BITS_READONLY_SOURCES=0`; bind-mount overlay, no chmod) | `bits/bits_helpers/build.py` |
+| 6 | CI lint guarding the invariant + this doc | `bits-recipe-tools/lint-out-of-source.sh` |
+
+**Validation done statically**: 1098 lcg recipe bodies syntax-checked (0 new
+failures); audited every `$SOURCEDIR` use — all remaining are reads (`cp` FROM
+SOURCES into INSTALLROOT, `rsync` FROM SOURCES); no recipe `cd`/`pushd`es into
+SOURCES; AutoTools/Make/Meson/Python/Pip recipe-tools already build from the
+copy. **Still needs a runner build** of ROOT + a representative set (a plain
+CMake pkg, xrootd, Boost, syscalc, CMake, Davix) to confirm the flip end-to-end
+before relying on it; Stages 1–2 are no-ops and can be validated as a regression.
+
+Run the lint from CI: `bits-recipe-tools/lint-out-of-source.sh lcg.bits`.
+
 ## Current state (facts)
 
 - `CMakeRecipe.Run`: `mkdir build; pushd build` → `Prepare` (rsync
