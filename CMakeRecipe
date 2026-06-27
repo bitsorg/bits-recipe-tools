@@ -59,13 +59,17 @@ function SetBuildEnv() {
 
 function Prepare() {
   # Copy the source into the build cwd: a private, per-build tree we own. The
-  # out-of-source CMake build (BITS_CMAKE_SRC=".", BITS_CMAKE_BUILD="build")
-  # reads from here and writes only into build/, so a recipe whose build mutates
-  # its source in place (in-tree patches, codegen, in-tree downloads) can never
-  # touch the shared, reused SOURCES tree. In-source-tool recipes (Boost ./b2,
-  # apfel/geneva/syscalc/…) also run from this copy. `--exclude '/build/'` keeps
-  # the binary dir across an incremental re-Prepare.
-  rsync -av --delete --exclude '**/.git' --delete-excluded --exclude '/build/' "${SOURCEDIR}"/ ./
+  # out-of-source CMake build (BITS_CMAKE_SRC=".", BITS_CMAKE_BUILD="bits-build")
+  # reads from here and writes only into bits-build/, so a recipe whose build
+  # mutates its source in place (in-tree patches, codegen, in-tree downloads) can
+  # never touch the shared, reused SOURCES tree. In-source-tool recipes (Boost
+  # ./b2, apfel/geneva/syscalc/…) also run from this copy. The binary dir is named
+  # "bits-build" (not "build") because real packages ship a SOURCE directory named
+  # build/ that their own CMakeLists add_subdirectory()s — e.g. libtiff, libgeotiff
+  # — and a "build" binary dir would collide with it. `--exclude '/bits-build/'`
+  # keeps the binary dir across an incremental re-Prepare (and never excludes a
+  # source build/ dir).
+  rsync -av --delete --exclude '**/.git' --delete-excluded --exclude '/bits-build/' "${SOURCEDIR}"/ ./
 }
 
 function Configure() {
@@ -104,13 +108,15 @@ function Run() {
   SetBuildEnv
   # Source/binary dirs used by Configure/Make/MakeInstall (and by recipes that
   # override Configure). The build runs out-of-source from the private per-build
-  # copy (cwd, ".") into build/, so a recipe whose build mutates its source in
-  # place can never touch the shared, reused SOURCES tree — which can therefore
+  # copy (cwd, ".") into bits-build/, so a recipe whose build mutates its source
+  # in place can never touch the shared, reused SOURCES tree — which can therefore
   # be mounted read-only (BITS_READONLY_SOURCES). cwd stays the copy for every
   # stage: there is no pushd/cd that could leak a wrong directory into Make or
-  # MakeInstall. See OUT-OF-SOURCE-MIGRATION.md.
+  # MakeInstall. The binary dir is "bits-build", not "build", so it can't collide
+  # with a source directory named build/ that a package's own CMakeLists
+  # add_subdirectory()s (libtiff, libgeotiff, …). See OUT-OF-SOURCE-MIGRATION.md.
   BITS_CMAKE_SRC="."
-  BITS_CMAKE_BUILD="build"
+  BITS_CMAKE_BUILD="bits-build"
   case $1 in
     Prepare) Prepare ;;
     Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
