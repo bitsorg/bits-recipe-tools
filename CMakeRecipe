@@ -1,7 +1,14 @@
 # CMakeRecipe — standard recipe for CMake-based packages (bits-recipe-tools)
 #
 # Overrideable variables (set before or after sourcing this file):
-#   CMAKE_OPTIONS   extra flags passed to cmake --build (default: empty)
+#   CMAKE_OPTIONS    extra flags passed to cmake --build (default: empty)
+#   BITS_CMAKE_SRC   the source dir cmake is pointed at  (set by Run())
+#   BITS_CMAKE_BUILD the out-of-source binary dir         (set by Run())
+#
+# Recipes that override Configure() MUST use these two variables for the source
+# and binary dirs (never a literal "$SOURCEDIR"): the framework controls their
+# values so the build can be moved onto a private copy and the shared SOURCES
+# tree kept read-only. See OUT-OF-SOURCE-MIGRATION.md.
 #
 # Override any of SetBuildEnv() / Configure() / Make() / UnitTest() /
 # MakeInstall() / PostInstall() / Clean() in the recipe body after sourcing
@@ -10,7 +17,7 @@
 # CMake find_package() locates all bits-built dependencies:
 #
 #   function Configure() {
-#     cmake "$SOURCEDIR" \
+#     cmake -S "$BITS_CMAKE_SRC" -B "$BITS_CMAKE_BUILD" \
 #       -DCMAKE_INSTALL_PREFIX="$INSTALLROOT" \
 #       -DCMAKE_BUILD_TYPE=Release \
 #       ${CMAKE_PREFIX_PATH:+-DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"} \
@@ -63,7 +70,7 @@ function Prepare() {
 }
 
 function Configure() {
-  cmake "$SOURCEDIR" \
+  cmake -S "$BITS_CMAKE_SRC" -B "$BITS_CMAKE_BUILD" \
     -DCMAKE_INSTALL_PREFIX="$INSTALLROOT" \
     -DCMAKE_INSTALL_LIBDIR=lib \
     -DCMAKE_BUILD_TYPE=Release \
@@ -71,7 +78,7 @@ function Configure() {
 }
 
 function Make() {
-  cmake --build . -- ${CMAKE_OPTIONS} ${JOBS:+-j$JOBS}
+  cmake --build "$BITS_CMAKE_BUILD" -- ${CMAKE_OPTIONS} ${JOBS:+-j$JOBS}
 }
 
 function UnitTest() {
@@ -79,7 +86,7 @@ function UnitTest() {
 }
 
 function MakeInstall() {
-  cmake --install .
+  cmake --install "$BITS_CMAKE_BUILD"
 }
 
 function PostInstall() {
@@ -98,6 +105,13 @@ function Run() {
   SetBuildEnv
   mkdir -p build
   pushd build
+  # Source/binary dirs used by Configure/Make/MakeInstall (and by recipes that
+  # override Configure). Stage 1 values reproduce the historical behavior exactly:
+  # build out-of-source from $SOURCEDIR with the binary dir = cwd = build/.
+  # (Stage 3 flips these to "." / "build" and drops the pushd — see
+  # OUT-OF-SOURCE-MIGRATION.md.)
+  BITS_CMAKE_SRC="$SOURCEDIR"
+  BITS_CMAKE_BUILD="."
   case $1 in
     Prepare) Prepare ;;
     Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
