@@ -58,15 +58,14 @@ function SetBuildEnv() {
 }
 
 function Prepare() {
-  # Copy the source into the build dir (cwd). Most CMake recipes build
-  # out-of-source via `cmake "$SOURCEDIR"` and do not need this, but several
-  # recipes override Make/Build to run an in-source tool from cwd (Boost's
-  # ./bootstrap.sh + ./b2, apfel/geneva/syscalc/… autotools, etc.) and rely on
-  # the source being present here. Recipes that build a package whose own CMake
-  # build puts a binary subdir on the include path (CMake itself: build/Source)
-  # must override Prepare to a no-op so the copied source headers do not collide
-  # with the real ones (see lcg.bits/cmake.sh).
-  rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
+  # Copy the source into the build cwd: a private, per-build tree we own. The
+  # out-of-source CMake build (BITS_CMAKE_SRC=".", BITS_CMAKE_BUILD="build")
+  # reads from here and writes only into build/, so a recipe whose build mutates
+  # its source in place (in-tree patches, codegen, in-tree downloads) can never
+  # touch the shared, reused SOURCES tree. In-source-tool recipes (Boost ./b2,
+  # apfel/geneva/syscalc/…) also run from this copy. `--exclude '/build/'` keeps
+  # the binary dir across an incremental re-Prepare.
+  rsync -av --delete --exclude '**/.git' --delete-excluded --exclude '/build/' "${SOURCEDIR}"/ ./
 }
 
 function Configure() {
@@ -103,20 +102,19 @@ function Clean() {
 function Run() {
   local rc=0
   SetBuildEnv
-  mkdir -p build
-  pushd build
   # Source/binary dirs used by Configure/Make/MakeInstall (and by recipes that
-  # override Configure). Stage 1 values reproduce the historical behavior exactly:
-  # build out-of-source from $SOURCEDIR with the binary dir = cwd = build/.
-  # (Stage 3 flips these to "." / "build" and drops the pushd — see
-  # OUT-OF-SOURCE-MIGRATION.md.)
-  BITS_CMAKE_SRC="$SOURCEDIR"
-  BITS_CMAKE_BUILD="."
+  # override Configure). The build runs out-of-source from the private per-build
+  # copy (cwd, ".") into build/, so a recipe whose build mutates its source in
+  # place can never touch the shared, reused SOURCES tree — which can therefore
+  # be mounted read-only (BITS_READONLY_SOURCES). cwd stays the copy for every
+  # stage: there is no pushd/cd that could leak a wrong directory into Make or
+  # MakeInstall. See OUT-OF-SOURCE-MIGRATION.md.
+  BITS_CMAKE_SRC="."
+  BITS_CMAKE_BUILD="build"
   case $1 in
     Prepare) Prepare ;;
     Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
     *)       Prepare && Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
   esac || rc=$?
-  popd
   return $rc
 }
