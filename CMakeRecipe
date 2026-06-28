@@ -58,18 +58,20 @@ function SetBuildEnv() {
 }
 
 function Prepare() {
-  # Copy the source into the build cwd: a private, per-build tree we own. The
-  # out-of-source CMake build (BITS_CMAKE_SRC=".", BITS_CMAKE_BUILD="bits-build")
-  # reads from here and writes only into bits-build/, so a recipe whose build
-  # mutates its source in place (in-tree patches, codegen, in-tree downloads) can
-  # never touch the shared, reused SOURCES tree. In-source-tool recipes (Boost
-  # ./b2, apfel/geneva/syscalc/…) also run from this copy. The binary dir is named
-  # "bits-build" (not "build") because real packages ship a SOURCE directory named
-  # build/ that their own CMakeLists add_subdirectory()s — e.g. libtiff, libgeotiff
-  # — and a "build" binary dir would collide with it. `--exclude '/bits-build/'`
-  # keeps the binary dir across an incremental re-Prepare (and never excludes a
-  # source build/ dir).
-  rsync -av --delete --exclude '**/.git' --delete-excluded --exclude '/bits-build/' "${SOURCEDIR}"/ ./
+  # Copy the source into src/ (cwd). The CMake build runs out-of-source into the
+  # SIBLING build/ dir (BITS_CMAKE_BUILD, OUTSIDE src/) — the classic separate-tree
+  # out-of-source layout, except the source is now a private copy instead of the
+  # shared SOURCES tree. A binary dir nested inside the source breaks real
+  # packages, which is why it must be a sibling:
+  #   * projects that FORBID a binary dir inside the source tree reject it
+  #     (CLHEP's clhep_ensure_out_of_source_build);
+  #   * a package that ships a SOURCE directory named build/ and add_subdirectory()s
+  #     it (libtiff, libgeotiff) collides with a nested "build" binary dir.
+  # Keep .git: some projects derive their version from git, or fetch a bundled
+  # module via git at configure time (asiofi/FairCMakeModules). In-source-tool
+  # recipes (Boost ./b2, syscalc, …) also run from this copy (cwd=src). build/ is a
+  # sibling, so a plain `--delete` rsync of src/ never disturbs the binary dir.
+  rsync -a --delete "${SOURCEDIR}"/ ./
 }
 
 function Configure() {
@@ -106,17 +108,20 @@ function Clean() {
 function Run() {
   local rc=0
   SetBuildEnv
-  # Source/binary dirs used by Configure/Make/MakeInstall (and by recipes that
-  # override Configure). The build runs out-of-source from the private per-build
-  # copy (cwd, ".") into bits-build/, so a recipe whose build mutates its source
-  # in place can never touch the shared, reused SOURCES tree — which can therefore
-  # be mounted read-only (BITS_READONLY_SOURCES). cwd stays the copy for every
-  # stage: there is no pushd/cd that could leak a wrong directory into Make or
-  # MakeInstall. The binary dir is "bits-build", not "build", so it can't collide
-  # with a source directory named build/ that a package's own CMakeLists
-  # add_subdirectory()s (libtiff, libgeotiff, …). See OUT-OF-SOURCE-MIGRATION.md.
-  BITS_CMAKE_SRC="."
-  BITS_CMAKE_BUILD="bits-build"
+  # Lay out the per-build tree as siblings under the package work dir:
+  #   src/    the private source copy (cwd; in-source-tool recipes run here)
+  #   build/  the out-of-source CMake binary dir, OUTSIDE the source
+  # Used by Configure/Make/MakeInstall and by recipes that override Configure.
+  # Absolute paths so a recipe that cd's around still resolves them, and so the
+  # binary dir is unambiguously a SIBLING of — never inside — the source: this is
+  # the classic separate-tree out-of-source build, which projects like CLHEP
+  # require and which avoids colliding with a source dir named build/ (libtiff).
+  # SOURCES is only read (by Prepare's rsync) and can be mounted read-only
+  # (BITS_READONLY_SOURCES). See OUT-OF-SOURCE-MIGRATION.md.
+  mkdir -p src build
+  BITS_CMAKE_SRC="$PWD/src"
+  BITS_CMAKE_BUILD="$PWD/build"
+  cd src
   case $1 in
     Prepare) Prepare ;;
     Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
