@@ -137,6 +137,11 @@ if [ X$HAS_PKGCONFIG = Xtrue ]; then
   emit_guarded_prepend PKG_CONFIG_PATH lib/pkgconfig
   emit_guarded_prepend PKG_CONFIG_PATH lib64/pkgconfig
 fi
+if [ -n "${BITS_MODULE_VIEW:-}" ]; then
+  # `view: true` in the recipe: mark this modulefile so that `bits enter/setenv`
+  # this package auto-enables --view (path collapse onto the merged view).
+  printf "setenv BITS_VIEW 1\n"
+fi
 echo
 }
 
