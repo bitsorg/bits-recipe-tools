@@ -1,0 +1,37 @@
+# FortranRecipe — Fortran-generator mixin (bits-recipe-tools).
+#
+# Source AFTER the build base in a Fortran recipe:
+#   . $(bits-include AutoToolsRecipe)
+#   . $(bits-include FortranRecipe)
+# It handles the two things Fortran generators need, so the recipe body stays
+# pure package logic:
+#   * the retired `g77` compiler — a g77 shim on PATH forwards to the axis
+#     Fortran compiler ($FC, else gfortran). Build files that invoke g77
+#     (configure's compiler probe, generated Makefiles, hardcoded g77) run the
+#     modern compiler with NO file edits and NO tree scan. Inert if nothing
+#     calls g77, so it is always safe to include.
+#   * the macOS ELF->Mach-O dylib link fix (Darwin only).
+#
+# Knobs (set in the recipe after the include):
+#   BITS_MACOS_DYLIB          makefile whose shared-link line to convert on osx
+#                             (default: Makeshared.subdir; empty disables it)
+#   BITS_MACOS_DYLIB_PATTERN  override the link-line regex for that file
+
+. ${BITS_RECIPE_TOOLS_ROOT}/BitsMacOS
+
+# g77 -> $FC: put the shipped g77 shim (scripts/g77, which execs $FC) on PATH, so
+# build files that invoke the retired g77 run the axis Fortran compiler with no
+# file edits. Scoped to recipes that include FortranRecipe. FC is exported so the
+# shim sees it; F77 is exported so an autotools configure that honours it picks
+# gfortran directly.
+export FC="${FC:-gfortran}"
+export F77="${F77:-$FC}"
+export PATH="${BITS_RECIPE_TOOLS_ROOT}/scripts:$PATH"
+
+# macOS: default the dylib link fix onto Makeshared.subdir (no-op if absent).
+case "${ARCHITECTURE:-$(uname)}" in osx*|Darwin) : "${BITS_MACOS_DYLIB:=Makeshared.subdir}";; esac
+
+function _Make() {
+  [ -n "${BITS_MACOS_DYLIB:-}" ] && bits_macos_make_dylib "$BITS_MACOS_DYLIB" "${BITS_MACOS_DYLIB_PATTERN:-}"
+  Make
+}

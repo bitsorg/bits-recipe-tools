@@ -1,0 +1,7 @@
+#!/bin/sh
+# g77 shim (bits-recipe-tools). The GNU Fortran 77 compiler is retired; forward
+# every g77 invocation to the axis Fortran compiler ($FC, else gfortran).
+# FortranRecipe puts this scripts/ dir on PATH for Fortran generator recipes, so
+# build files that still call `g77` run the modern compiler with no file edits.
+# Kept out of bin/ (which is on every build's PATH) so it stays opt-in.
+exec "${FC:-gfortran}" "$@"

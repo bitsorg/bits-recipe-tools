@@ -1,59 +1,21 @@
-# MakeRecipe — recipe for packages that build with plain make (no configure step)
+# MakeRecipe — plain-make packages, no configure step (bits-recipe-tools)
 #
-# Use this recipe when a package ships only a Makefile with no autoconf or cmake.
-# The default Configure() is a no-op; override Make() and/or MakeInstall() as needed.
-#
-# Typical pattern for packages with non-standard install targets:
+# Configure is a no-op (inherited from BitsRecipe). Override Make()/MakeInstall()
+# as needed; SOURCEDIR/INSTALLROOT/JOBS are available (guard JOBS with
+# ${JOBS:+-j$JOBS}). Typical non-standard install:
 #
 #   function Make() {
-#     rsync -av --delete --exclude '**/.git' --delete-excluded "$SOURCEDIR"/ ./
 #     make ${JOBS:+-j $JOBS}
 #     make install PREFIX="$INSTALLROOT"
 #   }
 #   function MakeInstall() { true; }
-#
-# Variables available:
-#   SOURCEDIR     path to the unpacked source tree
-#   INSTALLROOT   path to the package install prefix
-#   JOBS          parallel job count (may be unset; always guard with ${JOBS:+-j$JOBS})
 
-function Prepare() {
-  rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
-}
-
-function Configure() {
-  true
-}
+. ${BITS_RECIPE_TOOLS_ROOT}/BitsRecipe
 
 function Make() {
   make ${JOBS:+-j $JOBS}
 }
 
-function UnitTest() {
-  true
-}
-
 function MakeInstall() {
   make install PREFIX="${INSTALLROOT}"
-}
-
-function PostInstall() {
-  true
-}
-
-function Clean() {
-  find "$INSTALLROOT/lib" -name '*.la' -delete 2>/dev/null || true
-}
-
-. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
-. ${BITS_RECIPE_TOOLS_ROOT}/PreloadRecipe
-
-function Run() {
-  local rc=0
-  case $1 in
-    Prepare) Prepare ;;
-    Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
-    *)       Prepare && Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
-  esac || rc=$?
-  return $rc
 }

@@ -1,0 +1,33 @@
+# BitsRecipe — common build skeleton for compiling recipes (bits-recipe-tools).
+#
+# The build-system base recipes (AutoTools/CMake/Make/Meson) source this and
+# override only the phase functions that differ (Prepare/Configure/Make/
+# MakeInstall). A package recipe overrides individual phases further. A Fortran
+# generator additionally sources FortranRecipe — a mixin that extends the
+# _Configure/_Make seams with the g77 + macOS-dylib fixes. The _<Phase> wrappers
+# exist as those extension seams and are pass-throughs by default.
+
+. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe   # MakeModule
+
+# Overridable phase defaults
+function Prepare()     { rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./; }
+function Configure()   { true; }
+function Make()        { true; }
+function UnitTest()    { true; }
+function MakeInstall() { true; }
+function PostInstall() { true; }
+function Clean()       { [ -n "${INSTALLROOT:-}" ] && find "$INSTALLROOT/lib" -name '*.la' -delete 2>/dev/null || true; }
+
+# Phase wrappers — mixin extension seams (pass-through by default)
+function _Configure() { Configure; }
+function _Make()      { Make; }
+
+function Run() {
+  local rc=0
+  case $1 in
+    Prepare) Prepare ;;
+    Build)   _Configure && _Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && _Configure && _Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+  esac || rc=$?
+  return $rc
+}

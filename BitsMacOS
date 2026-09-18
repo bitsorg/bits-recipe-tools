@@ -66,3 +66,18 @@ function bits_swig_lib() {
     "${SWIG_ROOT}/bin/swig" -swiglib 2>/dev/null
   fi
 }
+
+# bits_macos_make_dylib FILE [PATTERN] — rewrite an ELF shared-library link line
+# (`-shared -Wl,-soname,<name>`, which Apple ld rejects and which leaves Fortran
+# runtime symbols undefined) to Mach-O dylib conventions: -dynamiclib plus the
+# undefined-dynamic-lookup + headerpad flags. A no-op off Darwin, so a recipe can
+# call it unconditionally — the Linux build is untouched. PATTERN overrides the
+# default link-line regex for build systems that spell it differently.
+# Use from Make() on the generated makefile, e.g.:
+#   bits_macos_make_dylib Makeshared.subdir
+function bits_macos_make_dylib() {
+  bits_is_macos || return 0
+  [ -f "$1" ] || return 0
+  bits_file_sub "$1" "${2:--shared -Wl,-soname,.*$}" \
+    "-dynamiclib $(bits_macos_undefined_ldflags)"
+}

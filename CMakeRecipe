@@ -37,6 +37,8 @@
 # has set, so that CMake 3.27+ find_package() (policy CMP0144) locates config
 # files for all dependencies.  Called unconditionally from Run() before any
 # build step so it is active for both Prepare+Configure and Build-only paths.
+. ${BITS_RECIPE_TOOLS_ROOT}/BitsRecipe
+
 function _SetBuildEnvBase() {
   # Under --initdotsh-from-modules (the default), each dependency's init.sh has
   # already put its install root on CMAKE_PREFIX_PATH (':'-separated, which
@@ -102,8 +104,6 @@ function Clean() {
   find "$INSTALLROOT/lib" -name '*.la' -delete 2>/dev/null || true
 }
 
-. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
-. ${BITS_RECIPE_TOOLS_ROOT}/PreloadRecipe
 
 function Run() {
   local rc=0
@@ -124,8 +124,8 @@ function Run() {
   cd src
   case $1 in
     Prepare) Prepare ;;
-    Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
-    *)       Prepare && Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
+    Build)   _Configure && _Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && _Configure && _Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
   esac || rc=$?
   return $rc
 }

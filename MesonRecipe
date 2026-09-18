@@ -1,26 +1,20 @@
-# MesonRecipe — standard recipe for Meson-based packages (bits-recipe-tools)
+# MesonRecipe — Meson-based packages (bits-recipe-tools)
 #
-# Overrideable variables (set before or after sourcing this file):
-#   MESON_BUILDDIR        build subdirectory name (default: _build)
-#   MESON_EXTRA_OPTIONS   extra flags passed to meson setup (default: empty)
+# Overrideable variables:
+#   MESON_BUILDDIR        build subdir (default: _build)
+#   MESON_EXTRA_OPTIONS   extra flags for `meson setup`
 #
-# Override Configure() to pass package-specific flags:
-#
-#   function Configure() {
-#     meson setup "${MESON_BUILDDIR}" \
-#       --prefix="$INSTALLROOT" \
-#       --libdir=lib \
-#       -Dfoo=enabled \
-#       ${MESON_EXTRA_OPTIONS}
-#   }
+# Override Configure() for package flags (call _meson_fixenv first if the
+# override does not go through the default path).
+
+. ${BITS_RECIPE_TOOLS_ROOT}/BitsRecipe
 
 MESON_BUILDDIR="${MESON_BUILDDIR:-_build}"
 
-# The meson binary was installed by pip into MESON_ROOT with the bits Python
-# shebang, but that Python's sys.path does not include MESON_ROOT's
-# site-packages.  This function is called at the start of every meson
-# invocation so mesonbuild is importable at build execution time (not just
-# at recipe source/SPEC compile time).
+# meson was pip-installed into MESON_ROOT with the bits Python shebang, but that
+# Python's sys.path lacks MESON_ROOT's site-packages. Put mesonbuild on
+# PYTHONPATH at every meson invocation (build-execution time, not just at recipe
+# source time).
 function _meson_fixenv() {
   if [ -n "${MESON_ROOT}" ]; then
     local _pyver
@@ -30,18 +24,16 @@ function _meson_fixenv() {
 }
 
 function Prepare() {
-  # Set PYTHONPATH early so mesonbuild is importable in every subsequent
-  # function — including custom Configure() overrides that don't call
-  # _meson_fixenv themselves.  The export persists for the whole SPEC run.
+  # PYTHONPATH early so mesonbuild is importable in every later phase, including
+  # custom Configure() overrides that do not call _meson_fixenv themselves.
   _meson_fixenv
   rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
 }
 
 function Configure() {
   _meson_fixenv
-  # --libdir=lib ensures libraries and pkgconfig files land in $prefix/lib/
-  # rather than a multiarch path (e.g. lib/x86_64-linux-gnu on Ubuntu), which
-  # keeps all *_ROOT/lib/pkgconfig assumptions consistent.
+  # --libdir=lib keeps libs and pkgconfig in $prefix/lib (not a multiarch path
+  # like lib/x86_64-linux-gnu), so all *_ROOT/lib/pkgconfig assumptions hold.
   meson setup "${MESON_BUILDDIR}" --prefix="$INSTALLROOT" --libdir=lib ${MESON_EXTRA_OPTIONS}
 }
 
@@ -50,32 +42,7 @@ function Make() {
   meson compile -C "${MESON_BUILDDIR}"
 }
 
-function UnitTest() {
-  true
-}
-
 function MakeInstall() {
   _meson_fixenv
   meson install -C "${MESON_BUILDDIR}"
-}
-
-function PostInstall() {
-  true
-}
-
-function Clean() {
-  find "$INSTALLROOT/lib" -name '*.la' -delete 2>/dev/null || true
-}
-
-. ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
-. ${BITS_RECIPE_TOOLS_ROOT}/PreloadRecipe
-
-function Run() {
-  local rc=0
-  case $1 in
-    Prepare) Prepare ;;
-    Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
-    *)       Prepare && Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
-  esac || rc=$?
-  return $rc
 }
