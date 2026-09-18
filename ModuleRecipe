@@ -77,9 +77,9 @@ echo FULL_BUILD_REQUIRES=$FULL_BUILD_REQUIRES >&2
 
 # Dependencies
 for x in `env | cut -f1 -d= | grep -v "^DEFAULT_" | grep -v PKGREVISION | grep -v _RECIPE_TOOLS | grep REVISION | sed -e 's/_REVISION//'`; do
-  REVISION_VALUE=`eval "echo $(echo \\$$(echo ${x}_REVISION))"`
-  VERSION_VALUE=`eval "echo $(echo \\$$(echo ${x}_VERSION))"`
-  ROOT_PATH_VALUE=`eval "echo $(echo \\$$(echo ${x}_ROOT))"`
+  _rev_var="${x}_REVISION"; REVISION_VALUE="${!_rev_var}"
+  _ver_var="${x}_VERSION";  VERSION_VALUE="${!_ver_var}"
+  _root_var="${x}_ROOT";    ROOT_PATH_VALUE="${!_root_var}"
   if echo $FULL_BUILD_REQUIRES | tr [:lower:] [:upper:] | tr - _ | tr \  \\n | grep -q "^$x$"; then
     echo $x is a build_requires. Skipping loading the associated module. >&2
   elif [ -d $ROOT_PATH_VALUE/etc/modulefiles ]; then
