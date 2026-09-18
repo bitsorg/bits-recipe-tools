@@ -58,13 +58,15 @@ function bits_patch_libtool_undefined() {
 # tree under SWIG_ROOT; on Linux keep the working `swig -swiglib`.
 # Use: export SWIG_LIB="$(bits_swig_lib)".
 function bits_swig_lib() {
-  if bits_is_macos; then
-    local _d
-    _d=$(ls -d "${SWIG_ROOT}"/share/swig/*/ 2>/dev/null | head -1)
-    printf '%s\n' "${_d%/}"
-  else
-    "${SWIG_ROOT}/bin/swig" -swiglib 2>/dev/null
+  # SWIG runtime lib dir. Prefer the relocated tree: `swig -swiglib` reports the gone
+  # build INSTALLROOT after relocation (on Linux too, once el9 dropped its system swig).
+  local _d _swig
+  _d=$(ls -d "${SWIG_ROOT}"/share/swig/*/ 2>/dev/null | head -1)
+  if [ -z "$_d" ]; then
+    _swig="${SWIG_ROOT:+${SWIG_ROOT}/bin/swig}"; _swig="${_swig:-$(command -v swig || true)}"
+    _d=$("${_swig}" -swiglib 2>/dev/null || true)
   fi
+  printf '%s\n' "${_d%/}"
 }
 
 # bits_macos_make_dylib FILE [PATTERN] — rewrite an ELF shared-library link line
