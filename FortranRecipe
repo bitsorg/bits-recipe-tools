@@ -19,12 +19,19 @@
 
 . ${BITS_RECIPE_TOOLS_ROOT}/BitsMacOS
 
-# g77 -> $FC: put the shipped g77 shim (scripts/g77, which execs $FC) on PATH, so
-# build files that invoke the retired g77 run the axis Fortran compiler with no
-# file edits. Scoped to recipes that include FortranRecipe. FC is exported so the
-# shim sees it; F77 is exported so an autotools configure that honours it picks
+# g77 -> the axis Fortran compiler: put the shipped g77 shim (scripts/g77) on PATH,
+# so build files that invoke the retired g77 run the modern compiler with no file
+# edits. Scoped to recipes that include FortranRecipe. The shim runs $BITS_FC, a
+# name no Makefile sets: it must not read FC, because make passes a Makefile's
+# `FC = g77` down to its commands and the shim would then exec itself forever.
+# FC and F77 are still exported so an autotools configure that honours them picks
 # gfortran directly.
+# A recipe that later points FC at a different compiler should update BITS_FC too.
 export FC="${FC:-gfortran}"
+case "${FC##*/}" in
+  g77) export FC=gfortran ;;
+esac
+export BITS_FC="$FC"
 export F77="${F77:-$FC}"
 export PATH="${BITS_RECIPE_TOOLS_ROOT}/scripts:$PATH"
 

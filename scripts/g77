@@ -1,7 +1,23 @@
 #!/bin/sh
 # g77 shim (bits-recipe-tools). The GNU Fortran 77 compiler is retired; forward
-# every g77 invocation to the axis Fortran compiler ($FC, else gfortran).
+# every g77 invocation to the axis Fortran compiler.
 # FortranRecipe puts this scripts/ dir on PATH for Fortran generator recipes, so
 # build files that still call `g77` run the modern compiler with no file edits.
 # Kept out of bin/ (which is on every build's PATH) so it stays opt-in.
-exec "${FC:-gfortran}" "$@"
+#
+# The compiler comes from BITS_FC (exported by FortranRecipe), NOT FC: when FC is
+# in the environment, GNU make passes a Makefile's own `FC = g77` down to the
+# commands it runs, so the shim would see FC=g77 and exec itself forever. And
+# whatever the variable says, never forward to g77 (that is this script).
+fc="${BITS_FC:-gfortran}"
+case "${fc##*/}" in
+  g77) fc=gfortran ;;
+esac
+# Last line of defence: if we are reached again from the compiler we exec'd (some
+# other name leading back here), fail loudly instead of spinning at 100% CPU.
+if [ -n "${BITS_G77_SHIM_ACTIVE:-}" ]; then
+  echo "g77 shim: recursion detected (BITS_FC=${BITS_FC:-unset}); set BITS_FC to a real Fortran compiler" >&2
+  exit 127
+fi
+export BITS_G77_SHIM_ACTIVE=1
+exec "$fc" "$@"
