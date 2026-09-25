@@ -6,6 +6,7 @@
 # Provides:
 #   bits_pythonpath_from_deps   add every dependency's site-packages to PYTHONPATH
 #   bits_enable_cython          put the bits-built Cython on PATH + PYTHONPATH
+#   bits_include_path_from_deps put Python's and every dependency's headers on the include path
 #
 # Background: bits' build environment exports each dependency's $*_ROOT but, unlike
 # the runtime modulefile, does NOT add its lib/pythonX.Y/site-packages to PYTHONPATH.
@@ -69,5 +70,20 @@ function bits_enable_cython() {
   _pyver=$(_bits_py_xy)
   export PATH="${CYTHON_ROOT}/bin:${PATH}"
   export PYTHONPATH="${CYTHON_ROOT}/lib/python${_pyver}/site-packages${PYTHONPATH:+:${PYTHONPATH}}"
+  return 0
+}
+
+# bits_include_path_from_deps — headers for C/C++/Cython extensions.
+#
+# bits exports no generic CPATH (it acts like -I and shadows the -isystem dirs
+# CMake picks), so Python extension builds that #include a dependency's headers
+# (or Python.h) without pkg-config get them here. Same scan as above.
+function bits_include_path_from_deps() {
+  local _r _py="${PYTHON_ROOT:-${Python_ROOT:-}}"
+  for _r in $(env | grep -E '^[A-Za-z][A-Za-z0-9_]*_ROOT=' | cut -d= -f1 | LC_ALL=C sort -u); do
+    [ -d "${!_r}/include" ] && export CPATH="${!_r}/include${CPATH:+:${CPATH}}"
+  done
+  [ -n "${_py}" ] && _py=$("${_py}/bin/python3" -c 'import sysconfig; print(sysconfig.get_paths()["include"])' 2>/dev/null) \
+    && [ -d "${_py}" ] && export CPATH="${_py}${CPATH:+:${CPATH}}"
   return 0
 }

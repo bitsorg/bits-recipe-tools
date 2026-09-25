@@ -27,6 +27,8 @@ SITE_PACKAGES="${INSTALLROOT}/lib/python${PYTHON_MAJOR_MINOR}/site-packages"
 # (shared helper) adds any whose lib/pythonX.Y/site-packages directory exists.
 . ${BITS_RECIPE_TOOLS_ROOT}/BitsPython
 bits_pythonpath_from_deps
+# Headers for C/C++/Cython extensions (bits exports no generic include path).
+bits_include_path_from_deps
 
 function Prepare() {
   rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./
