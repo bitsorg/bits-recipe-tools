@@ -137,6 +137,11 @@ if [ X$HAS_PKGCONFIG = Xtrue ]; then
   emit_guarded_prepend PKG_CONFIG_PATH lib/pkgconfig
   emit_guarded_prepend PKG_CONFIG_PATH lib64/pkgconfig
 fi
+# Man pages, when the package ships them -- only while MANPATH is set and not
+# empty: otherwise man derives the search path from PATH (<prefix>/bin ->
+# <prefix>/share/man), and setting it would hide the system's own pages. Unload
+# evaluates the same condition, so it removes exactly what load added.
+printf 'if {[info exists ::env(MANPATH)] && $::env(MANPATH) ne "" && [file isdirectory $PKG_ROOT/share/man]} { prepend-path MANPATH $PKG_ROOT/share/man }\n'
 if [ -n "${BITS_MODULE_VIEW:-}" ]; then
   # `view: true` in the recipe: mark this modulefile so that `bits enter/setenv`
   # this package auto-enables --view (path collapse onto the merged view).
