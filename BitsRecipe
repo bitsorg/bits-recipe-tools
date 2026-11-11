@@ -8,6 +8,7 @@
 # exist as those extension seams and are pass-throughs by default.
 
 . ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe   # MakeModule
+. ${BITS_RECIPE_TOOLS_ROOT}/TestRecipe     # _UnitTest
 
 # Overridable phase defaults
 function Prepare()     { rsync -av --delete --exclude '**/.git' --delete-excluded "${SOURCEDIR}"/ ./; }
@@ -26,8 +27,8 @@ function Run() {
   local rc=0
   case $1 in
     Prepare) Prepare ;;
-    Build)   _Configure && _Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
-    *)       Prepare && _Configure && _Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    Build)   _Configure && _Make && _UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && _Configure && _Make && _UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
   esac || rc=$?
   return $rc
 }

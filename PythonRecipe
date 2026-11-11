@@ -69,13 +69,14 @@ function Clean() { true; }
 
 . ${BITS_RECIPE_TOOLS_ROOT}/ModuleRecipe
 . ${BITS_RECIPE_TOOLS_ROOT}/PreloadRecipe
+. ${BITS_RECIPE_TOOLS_ROOT}/TestRecipe
 
 function Run() {
   local rc=0
   case $1 in
     Prepare) Prepare ;;
-    Build)   Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
-    *)       Prepare && Configure && Make && UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
+    Build)   Configure && Make && _UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
+    *)       Prepare && Configure && Make && _UnitTest && MakeInstall && MakeModule && PostInstall && Preload && Clean ;;
   esac || rc=$?
   return $rc
 }

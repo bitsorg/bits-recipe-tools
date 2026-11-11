@@ -1,0 +1,17 @@
+# TestRecipe — the test step (bits-recipe-tools), sourced by BitsRecipe and PythonRecipe.
+#
+# Without BITS_RUN_TESTS, _UnitTest runs UnitTest() as before: a failure fails the
+# build. bits sets BITS_RUN_TESTS (and BITS_TEST_RUN_ID) for the top package of a
+# `bits build --run-tests`: UnitTest() then runs with BITS_TEST_RESULTS set, its
+# output goes to $WORK_DIR/TESTS/$PKGNAME/test.log, its exit code and the run id to
+# result.json, and a failure never stops the build.
+
+function _UnitTest() {
+  [ -n "${BITS_RUN_TESTS:-}" ] || { UnitTest; return; }
+  local dir="${WORK_DIR:?}/TESTS/${PKGNAME:?}" rc=0
+  rm -rf "$dir" && mkdir -p "$dir"
+  ( export BITS_TEST_RESULTS="$dir"; UnitTest ) > "$dir/test.log" 2>&1 || rc=$?
+  printf '{"rc": %d, "run": "%s"}\n' "$rc" "${BITS_TEST_RUN_ID//[^A-Za-z0-9-]/}" > "$dir/result.json"
+  echo "Tests of $PKGNAME: $([ "$rc" -eq 0 ] && echo passed || echo "FAILED (exit $rc)"), log $dir/test.log"
+  return 0
+}

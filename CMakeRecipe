@@ -89,7 +89,11 @@ function Make() {
 }
 
 function UnitTest() {
-  true
+  # Only when bits asks for tests (TestRecipe); the JUnit file feeds its summary.
+  [ -n "${BITS_RUN_TESTS:-}" ] || return 0
+  ctest --test-dir "$BITS_CMAKE_BUILD" ${JOBS:+-j$JOBS} --output-on-failure \
+    --timeout "${BITS_TEST_TIMEOUT:-1500}" \
+    ${BITS_TEST_RESULTS:+--output-junit "$BITS_TEST_RESULTS/junit.xml"}
 }
 
 function MakeInstall() {
@@ -124,8 +128,8 @@ function Run() {
   cd src
   case $1 in
     Prepare) Prepare ;;
-    Build)   _Configure && _Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
-    *)       Prepare && _Configure && _Make && UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    Build)   _Configure && _Make && _UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
+    *)       Prepare && _Configure && _Make && _UnitTest && MakeInstall && MakeModule && PostInstall && Clean ;;
   esac || rc=$?
   return $rc
 }
