@@ -49,14 +49,23 @@ function MakeInstall() {
     source) _binary=(--no-binary "${_pip_name}") ;;
     all)    _binary=(--no-binary :all:) ;;
   esac
-  # --no-deps          deps are managed by bits, not pip
-  # --ignore-installed don't try to uninstall system packages before installing;
-  #                    avoids "Permission denied" when a system copy exists
-  # --root=/ --prefix= install directly into our package tree; no staging dir
+  # BITS_PIP_PIN "<file> <sha256>" (bits: what the first build installed): only
+  # that file, by its hash, so a file uploaded later is never taken instead
+  local _req=("${_pip_name}==${PKGVERSION}")
+  if [ -n "${BITS_PIP_PIN:-}" ]; then
+    printf '%s==%s --hash=sha256:%s\n' "${_pip_name}" "${PKGVERSION}" "${BITS_PIP_PIN##* }" > "${BUILDDIR}/pip-pin.txt"
+    _req=(--require-hashes -r "${BUILDDIR}/pip-pin.txt")
+  fi
+  # --no-deps             deps are managed by bits, not pip
+  # --no-build-isolation  build tools from Python and the recipe's requires, as bits built them
+  # --ignore-installed    never uninstall a system copy ("Permission denied")
+  # --report              what pip installed, for .pip-source.json (bits pins it)
+  # --root=/ --prefix=    install directly into our package tree; no staging dir
   "${PYTHON_EXE}" -m pip install \
-    --no-deps --ignore-installed ${_binary[@]+"${_binary[@]}"} \
+    --no-deps --no-build-isolation --ignore-installed ${_binary[@]+"${_binary[@]}"} \
+    --report "${BUILDDIR}/pip-report.json" \
     --root=/ --prefix="${INSTALLROOT}" \
-    "${_pip_name}==${PKGVERSION}"
+    "${_req[@]}"
   # Verify pip actually installed something — catches silent failures where pip
   # exits 0 but the package was not found or the index was unreachable.
   if [ -z "$(ls -A "${SITE_PACKAGES}" 2>/dev/null)" ]; then
@@ -64,4 +73,11 @@ function MakeInstall() {
     echo "PythonPipRecipe: check that ${_pip_name}==${PKGVERSION} exists on the configured index" >&2
     return 1
   fi
+  # The file pip installed and its sha256, from its report: bits pins and records it
+  "${PYTHON_EXE}" - "${BUILDDIR}/pip-report.json" "${INSTALLROOT}/.pip-source.json" <<\EOF
+import json, sys
+d = json.load(open(sys.argv[1]))["install"][0]["download_info"]
+h = d.get("archive_info", {}).get("hashes", {}).get("sha256")
+json.dump({"url": d["url"], "file": d["url"].rsplit("/", 1)[-1], "sha256": h}, open(sys.argv[2], "w"))
+EOF
 }
