@@ -42,12 +42,19 @@ function MakeInstall() {
   # PYPI_NAME may be set by the recipe to override the PyPI package name when
   # it differs from the bits package name (e.g. PYPI_NAME="python-prctl").
   local _pip_name="${PYPI_NAME:-${PKGNAME}}"
+  # BITS_PIP_BUILD (the group's system.pip_build, or bits build --pip-build):
+  # source builds this package from its sdist; all builds its build tools too
+  local _binary=()
+  case "${BITS_PIP_BUILD:-}" in
+    source) _binary=(--no-binary "${_pip_name}") ;;
+    all)    _binary=(--no-binary :all:) ;;
+  esac
   # --no-deps          deps are managed by bits, not pip
   # --ignore-installed don't try to uninstall system packages before installing;
   #                    avoids "Permission denied" when a system copy exists
   # --root=/ --prefix= install directly into our package tree; no staging dir
   "${PYTHON_EXE}" -m pip install \
-    --no-deps --ignore-installed \
+    --no-deps --ignore-installed ${_binary[@]+"${_binary[@]}"} \
     --root=/ --prefix="${INSTALLROOT}" \
     "${_pip_name}==${PKGVERSION}"
   # Verify pip actually installed something — catches silent failures where pip
